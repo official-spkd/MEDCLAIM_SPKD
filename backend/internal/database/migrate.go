@@ -90,6 +90,13 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	return nil
 }
 
+// Reset menghapus seluruh objek di schema public (tabel, enum, riwayat
+// migrasi) lalu membuatnya kosong kembali. HANYA untuk development.
+func Reset(ctx context.Context, pool *pgxpool.Pool) error {
+	_, err := pool.Exec(ctx, "DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
+	return err
+}
+
 func terapkan(ctx context.Context, tx pgx.Tx, versi, sql string) error {
 	if _, err := tx.Exec(ctx, sql); err != nil {
 		return err

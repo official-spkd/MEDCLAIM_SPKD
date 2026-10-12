@@ -32,23 +32,29 @@ func run() error {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	pool, err := database.Connect(ctx, cfg.DatabaseURL)
+	db, err := database.ConnectGORM(cfg.DatabaseURL)
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
+	if sqlDB, err := db.DB(); err == nil {
+		defer sqlDB.Close()
+	}
 
+	engine, err := router.New(cfg, db)
+	if err != nil {
+		return err
+	}
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           router.New(pool),
+		Handler:           engine,
 		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       60 * time.Second, // upload file besar
+		IdleTimeout:       120 * time.Second,
 	}
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Printf("MedClaim berjalan di :%s", cfg.Port)
+		log.Printf("MedClaim berjalan di :%s (env=%s)", cfg.Port, cfg.Env)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			errCh <- err
 		}
@@ -56,7 +62,6 @@ func run() error {
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-
 	select {
 	case err := <-errCh:
 		return err
@@ -64,7 +69,7 @@ func run() error {
 		log.Println("menghentikan server...")
 	}
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer shutdownCancel()
-	return srv.Shutdown(shutdownCtx)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return srv.Shutdown(ctx)
 }

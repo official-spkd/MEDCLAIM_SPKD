@@ -1,9 +1,7 @@
 package main
 
 import (
-	"context"
 	"log"
-	"time"
 
 	"medclaim-backend/internal/config"
 	"medclaim-backend/internal/database"
@@ -25,17 +23,14 @@ func run() error {
 		log.Println("seed dilewati: APP_ENV=production")
 		return nil
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-	defer cancel()
-
-	pool, err := database.Connect(ctx, cfg.DatabaseURL)
+	db, err := database.ConnectGORM(cfg.DatabaseURL)
 	if err != nil {
 		return err
 	}
-	defer pool.Close()
-
-	if err := seed.Run(ctx, pool); err != nil {
+	if sqlDB, err := db.DB(); err == nil {
+		defer sqlDB.Close()
+	}
+	if err := seed.Run(db, cfg.SeedPassword); err != nil {
 		return err
 	}
 	log.Println("seed selesai")

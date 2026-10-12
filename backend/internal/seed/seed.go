@@ -1,133 +1,139 @@
+// Package seed mengisi data master dan akun demo untuk development.
+// Idempoten: dapat dijalankan berulang tanpa membuat data ganda.
+// Data episode/ledger/query TIDAK di-seed — itu datang dari alur upload.
 package seed
 
 import (
-	"context"
 	"errors"
 	"fmt"
-	"os"
+	"log"
 
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+
+	"medclaim-backend/internal/claims"
+	"medclaim-backend/internal/hospitals"
+	"medclaim-backend/internal/queries"
+	"medclaim-backend/internal/settings"
+	"medclaim-backend/internal/users"
 )
-
-// Sandi akun demo. Bisa diganti lewat env SEED_PASSWORD.
-const sandiSeedDefault = "MedClaim#demo2026"
-
-type seedUser struct {
-	id, email, nama, role string
-	hospitalID            *string
-	spesialisasi, dpjp    *string
-}
 
 func s(v string) *string { return &v }
 
-// Run mengisi data master & akun demo untuk development.
-// Idempoten: baris yang sudah ada dilewati (ON CONFLICT DO NOTHING).
-// Data episode/ledger/query TIDAK di-seed — itu datang dari alur upload.
-func Run(ctx context.Context, pool *pgxpool.Pool) error {
-	if os.Getenv("APP_ENV") == "production" {
-		return errors.New("seed ditolak: APP_ENV=production")
-	}
+type userSeed struct {
+	email, nama, role, rs string
+	spesialisasi, dpjp    *string
+}
 
-	sandi := os.Getenv("SEED_PASSWORD")
-	if sandi == "" {
-		sandi = sandiSeedDefault
+// Run menjalankan seed dalam satu transaksi. password = sandi semua akun demo.
+func Run(db *gorm.DB, password string) error {
+	if len(password) < 8 {
+		return errors.New("password seed minimal 8 karakter")
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(sandi), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
 
-	tx, err := pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-
-	b := &pgx.Batch{}
-
-	for _, h := range [][4]string{
-		{"rs1", "RS001", "RSUD Kota Anggrek", "Bandung"},
-		{"rs2", "RS002", "RS Harapan Medika", "Bekasi"},
-		{"rs3", "RS003", "RS Pelayanan Sentosa", "Semarang"},
-	} {
-		kelas := map[string]string{"rs1": "B", "rs2": "B", "rs3": "C"}[h[0]]
-		b.Queue(`INSERT INTO hospitals (id, kode, nama, kota, kelas) VALUES ($1,$2,$3,$4,$5)
-			ON CONFLICT DO NOTHING`, h[0], h[1], h[2], h[3], kelas)
-	}
-
-	rs1 := s("rs1")
-	users := []seedUser{
-		{"u-admin", "admin@demo.medclaim.id", "Admin SPKD", "SUPERADMIN", nil, nil, nil},
-		{"u-casemix", "casemix@demo.medclaim.id", "Rina Casemix", "CASEMIX", rs1, nil, nil},
-		{"u-coder", "coder@demo.medclaim.id", "Citra Coder", "CODER", rs1, nil, nil},
-		{"u-direktur", "direktur@demo.medclaim.id", "Drs. Hendra Direktur", "DIREKTUR", rs1, nil, nil},
-		{"u-dpjp", "dpjp@demo.medclaim.id", "dr. Budi Prakoso, Sp.PD", "DPJP", rs1, s("Penyakit Dalam"), s("DPJP-0101")},
-		{"u-dpjp2", "dpjp02@demo.medclaim.id", "dr. Sinta Maharani, Sp.B", "DPJP", rs1, s("Bedah"), s("DPJP-0102")},
-		{"u-dpjp3", "dpjp03@demo.medclaim.id", "dr. Rahmat Hidayat, Sp.An", "DPJP", rs1, s("Anestesi"), s("DPJP-0103")},
-		{"u-dpjp4", "dpjp04@demo.medclaim.id", "dr. Yanti Lestari, Sp.OG", "DPJP", rs1, s("Obstetri Ginekologi"), s("DPJP-0104")},
-		{"u-dpjp5", "dpjp05@demo.medclaim.id", "dr. Eko Prasetyo, Sp.P", "DPJP", rs1, s("Paru"), s("DPJP-0105")},
-		{"u-dpjp6", "dpjp06@demo.medclaim.id", "dr. Fitri Utami, Sp.A", "DPJP", rs1, s("Anak"), s("DPJP-0106")},
-	}
-	for _, u := range users {
-		b.Queue(`INSERT INTO users (id, email, password_hash, nama, role, hospital_id, spesialisasi, dpjp_kode)
-			VALUES ($1,$2,$3,$4,$5::peran,$6,$7,$8) ON CONFLICT DO NOTHING`,
-			u.id, u.email, string(hash), u.nama, u.role, u.hospitalID, u.spesialisasi, u.dpjp)
-	}
-
-	for _, t := range [][4]string{
-		{"tpl-1", "Klarifikasi Diagnosis Utama", "Bagaimana kondisi klinis utama pasien pada episode ini dan temuan penunjang apa yang mendukung diagnosis utamanya?", "KODING"},
-		{"tpl-2", "Kelengkapan Resume", "Dokumen apa yang perlu dilengkapi pada resume medis episode ini agar kondisi komorbid pasien terdokumentasi utuh?", "DOKUMEN"},
-		{"tpl-3", "Catatan Operasi", "Apakah terdapat catatan tindakan/operasi yang belum tercatat pada episode ini dan kapan tindakan tersebut dilakukan?", "KODING"},
-	} {
-		b.Queue(`INSERT INTO query_templates (id, nama, isi, kategori) VALUES ($1,$2,$3,$4)
-			ON CONFLICT DO NOTHING`, t[0], t[1], t[2], t[3])
-	}
-
-	for _, kv := range [][2]string{
-		{"readiness.weights", `{"severity":30,"drug":25,"singleDiag":20,"icd":15,"los":10}`},
-		{"dq.penalti", `{"kritis":100,"peringatan":25,"info":10}`},
-		{"dq.max_invalid_row_pct", "5"},
-		{"sla.query_hari", "3"},
-	} {
-		b.Queue(`INSERT INTO settings (key, value) VALUES ($1,$2) ON CONFLICT DO NOTHING`, kv[0], kv[1])
-	}
-
-	// Referensi INA-CBG yang muncul di file sample. Referensi lain ditambah otomatis saat upload.
-	for _, r := range []struct {
-		kode, deskripsi string
-		tarif           int64
-	}{
-		{"I-4-08", "Gastritis & duodenitis", 2450000},
-		{"Q-5-14", "Septicemia", 6200000},
-		{"K-4-06", "Appendektomi", 5100000},
-		{"I-4-09", "Gagal jantung", 4780598},
-		{"E-4-02", "Diabetes mellitus", 3200501},
-		{"J-4-07", "Pneumonia", 5450321},
-		{"RJ-2-09", "Kunjungan lanjutan RJTP", 470249},
-	} {
-		b.Queue(`INSERT INTO ref_inacbg (kode, deskripsi, tarif) VALUES ($1,$2,$3)
-			ON CONFLICT DO NOTHING`, r.kode, r.deskripsi, r.tarif)
-	}
-
-	res := tx.SendBatch(ctx, b)
-	for i := 0; i < b.Len(); i++ {
-		if _, err := res.Exec(); err != nil {
-			res.Close()
-			return fmt.Errorf("seed gagal pada statement #%d: %w", i+1, err)
+	return db.Transaction(func(tx *gorm.DB) error {
+		// --- Rumah sakit ---
+		for _, h := range []hospitals.Hospital{
+			{Kode: "RS001", Nama: "RSUD Kota Anggrek", Kota: "Bandung", Kelas: "B"},
+			{Kode: "RS002", Nama: "RS Harapan Medika", Kota: "Bekasi", Kelas: "B"},
+			{Kode: "RS003", Nama: "RS Pelayanan Sentosa", Kota: "Semarang", Kelas: "C"},
+		} {
+			if err := tx.Where("kode = ?", h.Kode).FirstOrCreate(&h).Error; err != nil {
+				return fmt.Errorf("seed hospital %s: %w", h.Kode, err)
+			}
 		}
-	}
-	if err := res.Close(); err != nil {
-		return err
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return err
-	}
+		rsID := map[string]string{}
+		var hs []hospitals.Hospital
+		if err := tx.Find(&hs).Error; err != nil {
+			return err
+		}
+		for _, h := range hs {
+			rsID[h.Kode] = h.ID
+		}
 
-	fmt.Printf("seed selesai (%d statement). Akun demo: *@demo.medclaim.id\n", b.Len())
-	if os.Getenv("SEED_PASSWORD") == "" {
-		fmt.Println("sandi default dipakai — set SEED_PASSWORD untuk menggantinya")
-	}
-	return nil
+		// --- Pengguna demo ---
+		for _, u := range []userSeed{
+			{"admin@demo.medclaim.id", "Admin SPKD", "SUPERADMIN", "", nil, nil},
+			{"casemix@demo.medclaim.id", "Rina Casemix", "CASEMIX", "RS001", nil, nil},
+			{"coder@demo.medclaim.id", "Citra Coder", "CODER", "RS001", nil, nil},
+			{"direktur@demo.medclaim.id", "Drs. Hendra Direktur", "DIREKTUR", "RS001", nil, nil},
+			{"dpjp@demo.medclaim.id", "dr. Budi Prakoso, Sp.PD", "DPJP", "RS001", s("Penyakit Dalam"), s("DPJP-0101")},
+			{"dpjp02@demo.medclaim.id", "dr. Sinta Maharani, Sp.B", "DPJP", "RS001", s("Bedah"), s("DPJP-0102")},
+			{"dpjp03@demo.medclaim.id", "dr. Rahmat Hidayat, Sp.An", "DPJP", "RS001", s("Anestesi"), s("DPJP-0103")},
+			{"dpjp04@demo.medclaim.id", "dr. Yanti Lestari, Sp.OG", "DPJP", "RS001", s("Obstetri Ginekologi"), s("DPJP-0104")},
+			{"dpjp05@demo.medclaim.id", "dr. Eko Prasetyo, Sp.P", "DPJP", "RS001", s("Paru"), s("DPJP-0105")},
+			{"dpjp06@demo.medclaim.id", "dr. Fitri Utami, Sp.A", "DPJP", "RS001", s("Anak"), s("DPJP-0106")},
+		} {
+			var n int64
+			if err := tx.Model(&users.User{}).Where("email = ?", u.email).Count(&n).Error; err != nil {
+				return err
+			}
+			if n > 0 {
+				continue
+			}
+			row := users.User{
+				Email: u.email, PasswordHash: string(hash), Nama: u.nama, Role: u.role,
+				Spesialisasi: u.spesialisasi, DpjpKode: u.dpjp, Aktif: true,
+			}
+			if u.rs != "" {
+				id, ok := rsID[u.rs]
+				if !ok {
+					return fmt.Errorf("seed user %s: RS %s tidak ada", u.email, u.rs)
+				}
+				row.HospitalID = &id
+			}
+			if err := tx.Create(&row).Error; err != nil {
+				return fmt.Errorf("seed user %s: %w", u.email, err)
+			}
+		}
+
+		// --- Template query ---
+		for _, t := range []queries.Template{
+			{Nama: "Klarifikasi Diagnosis Utama", Kategori: "KODING", Aktif: true,
+				Isi: "Bagaimana kondisi klinis utama pasien pada episode ini dan temuan penunjang apa yang mendukung diagnosis utamanya?"},
+			{Nama: "Kelengkapan Resume", Kategori: "DOKUMEN", Aktif: true,
+				Isi: "Dokumen apa yang perlu dilengkapi pada resume medis episode ini agar kondisi komorbid pasien terdokumentasi utuh?"},
+			{Nama: "Catatan Operasi", Kategori: "KODING", Aktif: true,
+				Isi: "Apakah terdapat catatan tindakan/operasi yang belum tercatat pada episode ini dan kapan tindakan tersebut dilakukan?"},
+		} {
+			if err := tx.Where("nama = ?", t.Nama).FirstOrCreate(&t).Error; err != nil {
+				return err
+			}
+		}
+
+		// --- Pengaturan sistem ---
+		for _, kv := range []settings.Setting{
+			{Key: "readiness.weights", Value: `{"severity":30,"drug":25,"singleDiag":20,"icd":15,"los":10}`},
+			{Key: "dq.penalti", Value: `{"kritis":100,"peringatan":25,"info":10}`},
+			{Key: "dq.max_invalid_row_pct", Value: "5"},
+			{Key: "sla.query_hari", Value: "3"},
+		} {
+			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&kv).Error; err != nil {
+				return err
+			}
+		}
+
+		// --- Referensi INA-CBG yang muncul pada file contoh ---
+		// Referensi lain ditambahkan otomatis saat upload.
+		for _, r := range []claims.RefInacbg{
+			{Kode: "I-4-08", Deskripsi: "Gastritis & duodenitis", Tarif: 2450000},
+			{Kode: "Q-5-14", Deskripsi: "Septicemia", Tarif: 6200000},
+			{Kode: "K-4-06", Deskripsi: "Appendektomi", Tarif: 5100000},
+			{Kode: "I-4-09", Deskripsi: "Gagal jantung", Tarif: 4780598},
+			{Kode: "E-4-02", Deskripsi: "Diabetes mellitus", Tarif: 3200501},
+			{Kode: "J-4-07", Deskripsi: "Pneumonia", Tarif: 5450321},
+			{Kode: "RJ-2-09", Deskripsi: "Kunjungan lanjutan RJTP", Tarif: 470249},
+		} {
+			if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&r).Error; err != nil {
+				return err
+			}
+		}
+		log.Println("seed: RS, akun demo (*@demo.medclaim.id), template, pengaturan, ref INA-CBG")
+		return nil
+	})
 }

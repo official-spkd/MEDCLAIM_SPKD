@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [vue(), viteSingleFile()],
   base: process.env.VERCEL ? "/" : "/app/",
   build: {
-    outDir: process.env.VERCEL ? "dist" : "../dist",
+    outDir: process.env.VERCEL ? "dist" : "dist",
     emptyOutDir: true,
     target: "es2020",
     cssCodeSplit: false,

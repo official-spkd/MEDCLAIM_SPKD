@@ -24,16 +24,17 @@ Akun demo (sandi `MedClaim#demo2026`): admin / casemix / coder / direktur / dpjp
 
 ## Menjalankan
 
+    cd frontend
     npm install
     npm run dev          # mode demo WASM aktif via .env.development (VITE_MOCK=1)
 
 ## Deploy Vercel
 
-Import repo, Vercel otomatis memakai `vercel.json` (`npm run build:vercel` → mode `vercel` memuat `.env.vercel` dengan `VITE_MOCK=1`). Tidak perlu env apa pun.
+Import repo, set **Root Directory = `frontend`**. Vercel otomatis memakai `vercel.json` (`npm run build:vercel` → mode `vercel` memuat `.env.vercel` dengan `VITE_MOCK=1`). Tidak perlu env apa pun.
 
 Untuk backend Go sungguhan: kosongkan `VITE_MOCK`, isi `VITE_API_BASE` (lihat `.env.example`).
 
 ## Build ulang WASM (opsional, hanya bila Go diubah)
 
-    cd backend-wasm
-    GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o ../public/medclaim.wasm .
+    cd backend
+    GOOS=js GOARCH=wasm go build -ldflags="-s -w" -o ../frontend/public/medclaim.wasm .

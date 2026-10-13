@@ -45,7 +45,7 @@ func Load() (*Config, error) {
 		Port:        getenv("PORT", "8080"),
 		DatabaseURL: dsn,
 
-		CORSOrigins:    splitList(getenv("CORS_ORIGINS", "http://localhost:3031,http://localhost:5173")),
+		CORSOrigins:    splitList(getenv("CORS_ORIGINS", "http://localhost:3031,http://localhost:5173,https://1lw5n254-3031.asse.devtunnels.ms")),
 		SessionTTL:     time.Duration(ttlJam) * time.Hour,
 		CookieSecure:   getenv("COOKIE_SECURE", "false") == "true",
 		CookieSameSite: parseSameSite(getenv("COOKIE_SAMESITE", "lax")),

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from "vue";
-import { api, ApiError, modeDemo } from "../api";
-import { store, bisaAkses } from "../store";
-import { rupiah, rupiahSingkat, tanggalWaktu, angka, persen } from "../format";
-import { LABEL_KELAS_RUGI, LABEL_STATUS_LEDGER } from "../types";
-import type { Ledger, Kalibrasi, Episode } from "../types";
-import PageHeader from "../components/PageHeader.vue";
+import { ledgerApi, episodesApi, ApiError, modeDemo } from "@/api";
+import { store, bisaAkses } from "@/stores/session";
+import { rupiah, rupiahSingkat, tanggalWaktu, angka, persen } from "@/utils/format";
+import { LABEL_KELAS_RUGI, LABEL_STATUS_LEDGER } from "@/constants/labels";
+import type { Ledger, Kalibrasi, Episode, TransisiBody } from "@/types";
+import PageHeader from "@/components/layout/PageHeader.vue";
 
 const items = ref<Ledger[]>([]);
 const kalibrasi = ref<Kalibrasi | null>(null);
@@ -23,10 +23,7 @@ async function muat() {
   memuat.value = true;
   galat.value = "";
   try {
-    const p = new URLSearchParams();
-    if (status.value !== "SEMUA") p.set("status", status.value);
-    if (cari.value) p.set("q", cari.value);
-    const d = await api.get<{ items: Ledger[]; kalibrasi: Kalibrasi }>("/api/ledger" + (p.toString() ? `?${p}` : ""));
+    const d = await ledgerApi.list({ status: status.value !== "SEMUA" ? status.value : undefined, q: cari.value });
     items.value = d.items;
     kalibrasi.value = d.kalibrasi;
   } catch (e: any) {
@@ -52,7 +49,7 @@ async function buka(l: Ledger) {
   galatTransisi.value = "";
   form.value = { ke: "", alasan: "", referensiRm: "", realisasi: "" };
   try {
-    terpilih.value = await api.get<Ledger>(`/api/ledger/${l.id}`);
+    terpilih.value = await ledgerApi.detail(l.id);
   } finally {
     memuatDetail.value = false;
   }
@@ -75,9 +72,9 @@ async function transisi() {
   if (!terpilih.value) return;
   galatTransisi.value = "";
   try {
-    const body: Record<string, unknown> = { ke: form.value.ke, alasan: form.value.alasan, referensiRm: form.value.referensiRm };
+    const body: TransisiBody = { ke: form.value.ke, alasan: form.value.alasan, referensiRm: form.value.referensiRm };
     if (form.value.realisasi !== "") body.realisasi = Number(form.value.realisasi);
-    terpilih.value = await api.post<Ledger>(`/api/ledger/${terpilih.value.id}/transisi`, body);
+    terpilih.value = await ledgerApi.transisi(terpilih.value.id, body);
     form.value = { ke: "", alasan: "", referensiRm: "", realisasi: "" };
     await muat();
   } catch (e: any) {
@@ -93,13 +90,13 @@ const cariEpisode = ref<Episode[]>([]);
 async function cariSep() {
   const q = sepBuat.value.trim();
   if (!q) return;
-  const d = await api.get<{ items: Episode[] }>("/api/episodes?q=" + encodeURIComponent(q));
+  const d = await episodesApi.list({ q });
   cariEpisode.value = d.items.filter((e) => e.kelasRugi !== "SURPLUS").slice(0, 8);
   episodeDitemukan.value = d.items.find((e) => e.noSep === q) ?? null;
 }
 async function buatKandidat(ep: Episode) {
   try {
-    await api.post("/api/ledger", { episodeId: ep.id });
+    await ledgerApi.create(ep.id);
     okPesan("Kandidat dibuat untuk SEP " + ep.noSep);
     bukaBuat.value = false;
     await muat();

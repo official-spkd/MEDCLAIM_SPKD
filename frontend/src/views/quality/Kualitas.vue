@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue";
-import { api, modeDemo } from "../api";
-import { store } from "../store";
-import { tanggalWaktu, angka } from "../format";
-import type { Upload, DQReport } from "../types";
-import PageHeader from "../components/PageHeader.vue";
+import { uploadsApi, modeDemo } from "@/api";
+import { store } from "@/stores/session";
+import { tanggalWaktu, angka } from "@/utils/format";
+import type { Upload, DQReport } from "@/types";
+import PageHeader from "@/components/layout/PageHeader.vue";
 
 const uploads = ref<Upload[]>([]);
 const terpilih = ref<Upload | null>(null);
@@ -13,7 +13,7 @@ const memuat = ref(true);
 async function muat() {
   memuat.value = true;
   try {
-    const d = await api.get<{ items: Upload[] }>("/api/uploads");
+    const d = await uploadsApi.list();
     uploads.value = d.items.filter((u) => u.status !== "DIHAPUS");
     if (!terpilih.value && uploads.value.length) terpilih.value = uploads.value[0];
   } finally {

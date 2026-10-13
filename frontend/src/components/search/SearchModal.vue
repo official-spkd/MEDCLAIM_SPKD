@@ -4,11 +4,11 @@
 // ============================================================
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
-import { store, bisaAkses } from "../store";
-import { api } from "../api";
-import { usia } from "../format";
-import Ikon from "./Ikon.vue";
-import type { Episode } from "../types";
+import { store, bisaAkses } from "@/stores/session";
+import { episodesApi } from "@/api";
+import { usia } from "@/utils/format";
+import Ikon from "@/components/ui/Ikon.vue";
+import type { Episode } from "@/types";
 
 const emit = defineEmits<{ tutup: [] }>();
 const router = useRouter();
@@ -61,7 +61,7 @@ async function cariEpisode() {
   mencari.value = true;
   timer = setTimeout(async () => {
     try {
-      const d = await api.get<{ items: Episode[] }>("/api/episodes?q=" + encodeURIComponent(kunci.value.trim()));
+      const d = await episodesApi.list({ q: kunci.value.trim() });
       hasilEpisode.value = d.items.slice(0, 6);
     } catch {
       hasilEpisode.value = [];

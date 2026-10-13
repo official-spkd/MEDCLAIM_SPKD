@@ -1,24 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from "vue";
-import { api, modeDemo } from "../api";
-import { store, queryFilter } from "../store";
-import { tanggal } from "../format";
-import { angka } from "../format";
-import PageHeader from "../components/PageHeader.vue";
+import { analyticsApi, modeDemo } from "@/api";
+import { store, filterParams } from "@/stores/session";
+import { tanggal } from "@/utils/format";
+import { angka } from "@/utils/format";
+import type { AnomaliItem } from "@/types";
+import PageHeader from "@/components/layout/PageHeader.vue";
 
-interface Anomali {
-  episodeId: string;
-  jenis: string;
-  detail: string;
-  sep: string;
-  mr: string;
-  nama: string;
-  icbg: string;
-  los: number;
-  tglMasuk: string;
-}
-
-const items = ref<Anomali[]>([]);
+const items = ref<AnomaliItem[]>([]);
 const jenis = ref("");
 const memuat = ref(true);
 const galat = ref("");
@@ -37,8 +26,7 @@ async function muat() {
   memuat.value = true;
   galat.value = "";
   try {
-    const t = queryFilter(jenis.value ? { jenis: jenis.value } : {});
-    const d = await api.get<{ total: number; items: Anomali[] }>("/api/anomali" + t);
+    const d = await analyticsApi.anomali(filterParams(jenis.value ? { jenis: jenis.value } : {}));
     items.value = d.items.filter((a) => !jenis.value || a.jenis === jenis.value);
   } catch (e: any) {
     galat.value = e?.message ?? "Gagal memuat anomali.";

@@ -1,16 +1,12 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from "vue";
-import { api, modeDemo } from "../api";
-import { store, queryFilter } from "../store";
-import { rupiah, rupiahSingkat, persen } from "../format";
-import { LABEL_KOMPONEN } from "../types";
-import GrafikDonut from "../components/GrafikDonut.vue";
-import PageHeader from "../components/PageHeader.vue";
-
-interface Fin {
-  total: number;
-  komponen: { komponen: string; nilai: number; pct: number }[];
-}
+import { analyticsApi, modeDemo } from "@/api";
+import { store, filterParams } from "@/stores/session";
+import { rupiah, rupiahSingkat, persen } from "@/utils/format";
+import { LABEL_KOMPONEN } from "@/constants/labels";
+import type { Fin } from "@/types";
+import GrafikDonut from "@/components/charts/GrafikDonut.vue";
+import PageHeader from "@/components/layout/PageHeader.vue";
 
 const data = ref<Fin | null>(null);
 const memuat = ref(true);
@@ -22,7 +18,7 @@ async function muat() {
   memuat.value = true;
   galat.value = "";
   try {
-    data.value = await api.get<Fin>("/api/financial" + queryFilter());
+    data.value = await analyticsApi.financial(filterParams());
   } catch (e: any) {
     galat.value = e?.message ?? "Gagal memuat data finansial.";
   } finally {

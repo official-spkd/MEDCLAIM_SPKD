@@ -5,26 +5,17 @@
 // ============================================================
 import { ref, watch, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
-import { api, modeDemo } from "../api";
-import { store, queryFilter, bisaAkses } from "../store";
-import { rupiah, rupiahSingkat, angka, persen } from "../format";
-import type { KPI } from "../types";
-import PageHeader from "../components/PageHeader.vue";
-import KpiCard from "../components/KpiCard.vue";
-import Ikon from "../components/Ikon.vue";
-import GrafikDonut from "../components/GrafikDonut.vue";
-import GrafikTren from "../components/GrafikTren.vue";
+import { analyticsApi, modeDemo } from "@/api";
+import { store, filterParams, bisaAkses } from "@/stores/session";
+import { rupiah, rupiahSingkat, angka, persen } from "@/utils/format";
+import type { KPI, Dash } from "@/types";
+import PageHeader from "@/components/layout/PageHeader.vue";
+import KpiCard from "@/components/ui/KpiCard.vue";
+import Ikon from "@/components/ui/Ikon.vue";
+import GrafikDonut from "@/components/charts/GrafikDonut.vue";
+import GrafikTren from "@/components/charts/GrafikTren.vue";
 
 const router = useRouter();
-
-interface Dash {
-  kpi: KPI;
-  distribusiRugi: Record<string, number>;
-  tren: { periode: string; episode: number; rugi: number }[];
-  topCbg: { kode: string; desk: string; jumlah: number; rugi: number }[];
-  kelasRawat: { kelas: string; jumlah: number }[];
-  readiness: { total: number; komponen: Record<string, number> };
-}
 
 const data = ref<Dash | null>(null);
 const galat = ref("");
@@ -35,7 +26,7 @@ async function muat() {
   memuat.value = true;
   galat.value = "";
   try {
-    data.value = await api.get<Dash>("/api/dashboard" + queryFilter());
+    data.value = await analyticsApi.dashboard(filterParams());
   } catch (e: any) {
     galat.value = e?.message ?? "Gagal memuat dashboard.";
   } finally {

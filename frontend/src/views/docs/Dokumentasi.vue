@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { modeDemo } from "../api";
+import { modeDemo } from "@/api";
 import { ref } from "vue";
-import PageHeader from "../components/PageHeader.vue";
+import PageHeader from "@/components/layout/PageHeader.vue";
 
 const buka = ref<string>("pengantar");
 function toggle(id: string) {

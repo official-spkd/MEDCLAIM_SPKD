@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
-import { api, modeDemo } from "../api";
-import { store } from "../store";
-import { tanggalWaktu, tanggal } from "../format";
-import { LABEL_PERAN } from "../types";
-import type { UserPub, Audit } from "../types";
-import PageHeader from "../components/PageHeader.vue";
+import { adminApi, modeDemo } from "@/api";
+import { store } from "@/stores/session";
+import { tanggalWaktu, tanggal } from "@/utils/format";
+import { LABEL_PERAN } from "@/constants/labels";
+import type { UserPub, Audit } from "@/types";
+import PageHeader from "@/components/layout/PageHeader.vue";
 
 const tab = ref("pengguna");
 const users = ref<UserPub[]>([]);
@@ -16,9 +16,9 @@ async function muat() {
   galat.value = "";
   try {
     if (tab.value === "pengguna") {
-      users.value = (await api.get<{ items: UserPub[] }>("/api/admin/users")).items;
+      users.value = (await adminApi.users()).items;
     } else {
-      audit.value = (await api.get<{ items: Audit[] }>("/api/admin/audit")).items;
+      audit.value = (await adminApi.audit()).items;
     }
   } catch (e: any) {
     galat.value = e?.message ?? "Gagal memuat data admin.";
@@ -36,7 +36,7 @@ function watchTab() {
 async function toggle(u: UserPub) {
   galat.value = "";
   try {
-    await api.post(`/api/admin/users/${u.id}/toggle`);
+    await adminApi.toggleUser(u.id);
     await muat();
   } catch (e: any) {
     galat.value = e?.message ?? "Gagal mengubah status pengguna.";
@@ -50,7 +50,7 @@ const galatBuat = ref("");
 async function buat() {
   galatBuat.value = "";
   try {
-    await api.post("/api/admin/users", {
+    await adminApi.createUser({
       email: form.value.email,
       nama: form.value.nama,
       role: form.value.role,

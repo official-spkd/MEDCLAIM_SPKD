@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, watch, onMounted, computed } from "vue";
 import { useRoute } from "vue-router";
-import { api, modeDemo } from "../api";
-import { store, queryFilter, bisaAkses } from "../store";
-import { rupiah, persen, tanggal, usia, angka } from "../format";
-import { LABEL_KELAS_RUGI } from "../types";
-import type { Episode, Readiness } from "../types";
-import PageHeader from "../components/PageHeader.vue";
+import { episodesApi, modeDemo } from "@/api";
+import { store, filterParams, bisaAkses } from "@/stores/session";
+import { rupiah, persen, tanggal, usia, angka } from "@/utils/format";
+import { LABEL_KELAS_RUGI } from "@/constants/labels";
+import type { Episode, EpisodeDetail } from "@/types";
+import PageHeader from "@/components/layout/PageHeader.vue";
 
 const route = useRoute();
 
@@ -25,12 +25,13 @@ async function muat() {
   memuat.value = true;
   galat.value = "";
   try {
-    const t = queryFilter({
-      kelasRugi: kelasRugi.value,
-      kelas: kelas.value,
-      q: cari.value,
-    });
-    const d = await api.get<{ total: number; items: Episode[] }>("/api/episodes" + t);
+    const d = await episodesApi.list(
+      filterParams({
+        kelasRugi: kelasRugi.value,
+        kelas: kelas.value,
+        q: cari.value,
+      }),
+    );
     items.value = d.items;
     total.value = d.total;
     halaman.value = 1;
@@ -61,7 +62,7 @@ const badgeKelas: Record<string, string> = {
 };
 
 // ---------- Detail ----------
-const detail = ref<{ episode: Episode & { readiness?: Readiness }; versi: Episode[] } | null>(null);
+const detail = ref<EpisodeDetail | null>(null);
 const tabDetail = ref("ringkasan");
 const muatDetail = ref(false);
 async function bukaDetail(ep: Episode) {
@@ -69,7 +70,7 @@ async function bukaDetail(ep: Episode) {
   detail.value = null;
   tabDetail.value = "ringkasan";
   try {
-    detail.value = await api.get(`/api/episodes/${encodeURIComponent(ep.id)}`);
+    detail.value = await episodesApi.detail(ep.id);
   } catch (e: any) {
     galat.value = e?.message ?? "Gagal memuat detail.";
   } finally {

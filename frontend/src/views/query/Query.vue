@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from "vue";
-import { api, ApiError, modeDemo } from "../api";
-import { store, bisaAkses } from "../store";
-import { tanggal, tanggalWaktu, angka } from "../format";
-import { LABEL_STATUS_QUERY } from "../types";
-import type { QueryDok } from "../types";
-import PageHeader from "../components/PageHeader.vue";
+import { queriesApi, ApiError, modeDemo } from "@/api";
+import { store, bisaAkses } from "@/stores/session";
+import { tanggal, tanggalWaktu, angka } from "@/utils/format";
+import { LABEL_STATUS_QUERY } from "@/constants/labels";
+import type { QueryDok } from "@/types";
+import PageHeader from "@/components/layout/PageHeader.vue";
 
 const items = ref<QueryDok[]>([]);
 const status = ref("SEMUA");
@@ -20,8 +20,7 @@ async function muat() {
   memuat.value = true;
   galat.value = "";
   try {
-    const s = status.value !== "SEMUA" ? `?status=${status.value}` : "";
-    items.value = (await api.get<{ items: QueryDok[] }>("/api/queries" + s)).items;
+    items.value = (await queriesApi.list(status.value !== "SEMUA" ? status.value : undefined)).items;
   } catch (e: any) {
     galat.value = e?.message ?? "Gagal memuat query.";
   } finally {
@@ -46,7 +45,7 @@ async function kirim() {
   galatBuat.value = "";
   memproses.value = true;
   try {
-    await api.post("/api/queries", form.value);
+    await queriesApi.create(form.value);
     bukaBuat.value = false;
     form.value = { sep: "", dpjpId: "", templateId: "", pertanyaan: "", konteks: "" };
     await muat();
@@ -70,7 +69,7 @@ async function kirimJawaban() {
   if (!terpilih.value) return;
   galatJawab.value = "";
   try {
-    terpilih.value = await api.post<QueryDok>(`/api/queries/${terpilih.value.id}/answer`, { jawaban: jawaban.value });
+    terpilih.value = await queriesApi.answer(terpilih.value.id, jawaban.value);
     await muat();
   } catch (e: any) {
     galatJawab.value = e?.message ?? "Gagal menyimpan jawaban.";

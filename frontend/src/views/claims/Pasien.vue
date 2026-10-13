@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from "vue";
-import { api, modeDemo } from "../api";
-import { store, queryFilter, bisaAkses } from "../store";
-import { rupiah, tanggal, usia, angka } from "../format";
-import type { Episode } from "../types";
-import PageHeader from "../components/PageHeader.vue";
+import { episodesApi, modeDemo } from "@/api";
+import { store, filterParams, bisaAkses } from "@/stores/session";
+import { rupiah, tanggal, usia, angka } from "@/utils/format";
+import type { Episode } from "@/types";
+import PageHeader from "@/components/layout/PageHeader.vue";
 
 const items = ref<Episode[]>([]);
 const cari = ref("");
@@ -15,7 +15,7 @@ async function muat() {
   memuat.value = true;
   galat.value = "";
   try {
-    items.value = (await api.get<{ items: Episode[] }>("/api/episodes" + queryFilter())).items;
+    items.value = (await episodesApi.list(filterParams())).items;
   } catch (e: any) {
     galat.value = e?.message ?? "Gagal memuat pasien.";
   } finally {

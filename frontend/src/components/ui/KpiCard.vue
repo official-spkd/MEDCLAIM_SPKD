@@ -3,7 +3,7 @@
 // MedClaim — KpiCard: kartu metrik ala MedCredix
 // (label uppercase + nilai besar + ikon kanan-atas lingkaran)
 // ============================================================
-import Ikon from "./Ikon.vue";
+import Ikon from "@/components/ui/Ikon.vue";
 
 withDefaults(
   defineProps<{

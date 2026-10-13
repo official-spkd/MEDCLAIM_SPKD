@@ -4,8 +4,8 @@
 // ============================================================
 import { ref } from "vue";
 import { useRouter } from "vue-router";
-import { masuk } from "../store";
-import Ikon from "../components/Ikon.vue";
+import { masuk } from "@/stores/session";
+import Ikon from "@/components/ui/Ikon.vue";
 
 const router = useRouter();
 const email = ref("admin@demo.medclaim.id");

@@ -1,9 +1,9 @@
 // ============================================================
-// MedClaim Vue — State global (sesi, bootstrap, filter global)
+// MedClaim Vue — State global (sesi, bootstrap, filter global, izin)
 // ============================================================
 import { reactive, computed } from "vue";
-import { api, ApiError } from "./api";
-import type { Bootstrap, Sesi, Hospital, Upload } from "./types";
+import { ApiError, authApi, bootstrapApi, setPenangan401, type Query } from "@/api";
+import type { Bootstrap, Sesi, Hospital, Upload } from "@/types";
 
 interface State {
   siap: boolean;
@@ -37,20 +37,23 @@ export const store = reactive<State>({
   memuat: false,
 });
 
-export function queryFilter(tambahan: Record<string, string> = {}): string {
-  const p = new URLSearchParams();
-  if (store.filter.rs) p.set("rs", store.filter.rs);
-  if (store.filter.upload) p.set("upload", store.filter.upload);
-  if (store.filter.tipe && store.filter.tipe !== "SEMUA") p.set("tipe", store.filter.tipe);
-  if (store.filter.dari) p.set("dari", store.filter.dari);
-  if (store.filter.sampai) p.set("sampai", store.filter.sampai);
-  for (const [k, v] of Object.entries(tambahan)) if (v) p.set(k, v);
-  const s = p.toString();
-  return s ? `?${s}` : "";
+/**
+ * Filter global (RS, upload, tipe, rentang tanggal) sebagai parameter query,
+ * siap diteruskan ke fungsi di "@/api". `tambahan` ikut dikirim bila tidak kosong.
+ */
+export function filterParams(tambahan: Query = {}): Query {
+  const p: Query = {};
+  if (store.filter.rs) p.rs = store.filter.rs;
+  if (store.filter.upload) p.upload = store.filter.upload;
+  if (store.filter.tipe && store.filter.tipe !== "SEMUA") p.tipe = store.filter.tipe;
+  if (store.filter.dari) p.dari = store.filter.dari;
+  if (store.filter.sampai) p.sampai = store.filter.sampai;
+  for (const [k, v] of Object.entries(tambahan)) if (v) p[k] = v;
+  return p;
 }
 
 export async function muatBootstrap(): Promise<void> {
-  const data = await api.get<Bootstrap>("/api/bootstrap");
+  const data = await bootstrapApi.get();
   store.sesi = data.me;
   store.hospitals = data.hospitals;
   store.uploads = data.uploads;
@@ -61,13 +64,13 @@ export async function muatBootstrap(): Promise<void> {
 }
 
 export async function masuk(email: string, sandi: string): Promise<void> {
-  store.sesi = await api.post<Sesi>("/api/auth/login", { email, password: sandi });
+  store.sesi = await authApi.login(email, sandi);
   await muatBootstrap();
 }
 
 export async function keluar(): Promise<void> {
   try {
-    await api.post("/api/auth/logout");
+    await authApi.logout();
   } catch {
     /* abaikan */
   }
@@ -89,9 +92,28 @@ export async function cobaSesi(): Promise<void> {
   }
 }
 
-// ---------- Izin RBAC (cermin rbac.go) ----------
+// Sesi berakhir di tengah pemakaian (cookie kedaluwarsa / akun dinonaktifkan):
+// kosongkan sesi; router (router/index.ts) memantau store.sesi dan mengarahkan ke login.
+setPenangan401(() => {
+  if (store.sesi) {
+    store.sesi = null;
+    store.uploads = [];
+  }
+});
 
-export const bisaAkses = computed(() => {
+// ---------- Izin RBAC (cermin internal/auth/rbac.go di backend) ----------
+
+export interface Akses {
+  analitik: boolean;
+  upload: boolean;
+  ledger: boolean;
+  ledgerTulis: boolean;
+  query: boolean;
+  admin: boolean;
+  finansial: boolean;
+}
+
+export const bisaAkses = computed<Akses>(() => {
   const peran = store.sesi?.role;
   return {
     analitik: ["SUPERADMIN", "CASEMIX", "CODER", "DIREKTUR"].includes(peran ?? ""),

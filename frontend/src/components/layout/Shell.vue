@@ -6,12 +6,13 @@
 // ============================================================
 import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { store, bisaAkses, keluar } from "../store";
-import { api } from "../api";
-import { inisialNama, tanggalWaktu, angka } from "../format";
-import { LABEL_PERAN } from "../types";
-import Ikon from "./Ikon.vue";
-import SearchModal from "./SearchModal.vue";
+import { store, bisaAkses, keluar } from "@/stores/session";
+import { analyticsApi, queriesApi, ledgerApi } from "@/api";
+import { ITEM_NAV, URUTAN_GRUP } from "@/config/navigation";
+import { inisialNama, tanggalWaktu, angka } from "@/utils/format";
+import { LABEL_PERAN } from "@/constants/labels";
+import Ikon from "@/components/ui/Ikon.vue";
+import SearchModal from "@/components/search/SearchModal.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -27,32 +28,19 @@ function toggleTema() {
 }
 
 // ---------- Navigasi ----------
+// Daftar menu & aturan akses ada di config/navigation.ts (dipakai juga oleh router).
 const itemNav = computed(() => {
   const a = bisaAkses.value;
-  const items: { ke: string; judul: string; ikon: string; tampil: boolean }[] = [
-    { ke: "/", judul: "Dashboard", ikon: "dash", tampil: a.analitik || store.sesi?.role === "DPJP" },
-    { ke: "/klaim", judul: "Claim Explorer", ikon: "klaim", tampil: a.analitik || store.sesi?.role === "DPJP" },
-    { ke: "/pasien", judul: "Patient Tracer", ikon: "pasien", tampil: a.analitik || store.sesi?.role === "DPJP" },
-    { ke: "/finansial", judul: "Financial", ikon: "uang", tampil: a.finansial },
-    { ke: "/upload", judul: "Upload Klaim", ikon: "unggah", tampil: a.upload },
-    { ke: "/kualitas", judul: "Claim Quality", ikon: "mutu", tampil: a.upload || store.sesi?.role === "DIREKTUR" },
-    { ke: "/anomali", judul: "Anomaly Detection", ikon: "anomali", tampil: a.finansial },
-    { ke: "/ledger", judul: "Recovery Ledger", ikon: "buku", tampil: a.ledger },
-    { ke: "/query", judul: "Query", ikon: "tanya", tampil: a.query || store.sesi?.role === "DPJP" },
-    { ke: "/admin", judul: "Administrasi", ikon: "atur", tampil: a.admin },
-    { ke: "/dokumentasi", judul: "Dokumentasi", ikon: "buku2", tampil: true },
-  ];
-  return items.filter((i) => i.tampil);
+  const peran = store.sesi?.role;
+  return ITEM_NAV.filter((i) => i.boleh(a, peran)).map(({ ke, judul, ikon }) => ({ ke, judul, ikon, tampil: true }));
 });
 
-const grupNav = computed(() => {
-  const ambil = (daftar: string[]) => itemNav.value.filter((i) => daftar.includes(i.ke));
-  return [
-    { nama: "ANALITIK", items: ambil(["/", "/klaim", "/pasien", "/finansial"]) },
-    { nama: "OPERASIONAL", items: ambil(["/upload", "/kualitas", "/anomali", "/ledger", "/query"]) },
-    { nama: "LAINNYA", items: ambil(["/admin", "/dokumentasi"]) },
-  ].filter((g) => g.items.length);
-});
+const grupNav = computed(() =>
+  URUTAN_GRUP.map((nama) => ({
+    nama,
+    items: itemNav.value.filter((i) => ITEM_NAV.find((n) => n.ke === i.ke)?.grup === nama),
+  })).filter((g) => g.items.length),
+);
 
 function pindah(ke: string) {
   sidebarBuka.value = false;
@@ -104,8 +92,8 @@ async function muatRingkasan() {
 
   if (a.finansial) {
     tugas.push(
-      api
-        .get<{ total: number; items: unknown[] }>("/api/anomali")
+      analyticsApi
+        .anomali()
         .then((d) => {
           hitung.value.anomali = d.total ?? d.items.length;
           if ((d.total ?? d.items.length) > 0) {
@@ -123,8 +111,8 @@ async function muatRingkasan() {
   }
   if (a.query || store.sesi.role === "DPJP") {
     tugas.push(
-      api
-        .get<{ items: { status: string }[] }>("/api/queries")
+      queriesApi
+        .list()
         .then((d) => {
           const belum = d.items.filter((q) => q.status === "TERKIRIM").length;
           hitung.value.queryTerkirim = belum;
@@ -143,8 +131,8 @@ async function muatRingkasan() {
   }
   if (a.ledger) {
     tugas.push(
-      api
-        .get<{ items: { status: string }[] }>("/api/ledger")
+      ledgerApi
+        .list()
         .then((d) => {
           const aktif = d.items.filter((l) => l.status !== "HASIL" && l.status !== "TIDAK_BERUBAH").length;
           hitung.value.ledgerAktif = aktif;

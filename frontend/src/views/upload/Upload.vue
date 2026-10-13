@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
-import { api, ApiError, modeDemo } from "../api";
-import { store } from "../store";
-import { tanggalWaktu, angka } from "../format";
-import type { Upload, DQReport } from "../types";
-import PageHeader from "../components/PageHeader.vue";
+import { uploadsApi, samplesApi, ApiError, modeDemo } from "@/api";
+import { store } from "@/stores/session";
+import { tanggalWaktu, angka } from "@/utils/format";
+import type { Upload, UploadPreview as Pratinjau } from "@/types";
+import PageHeader from "@/components/layout/PageHeader.vue";
 
 const langkah = ref(1);
 const hospitalId = ref(store.hospitals[0]?.id ?? "");
@@ -17,18 +17,6 @@ const memproses = ref(false);
 const galat = ref("");
 const okPesan = ref("");
 
-interface Pratinjau {
-  header: string[];
-  delimiter: string;
-  format: string;
-  totalBaris: number;
-  barisValid: number;
-  barisGagal: number;
-  gagalDetail: { nomorBaris: number; alasan: string }[];
-  dq: DQReport;
-  duplikatSep: string[];
-  kolomTersedia: string[];
-}
 const pratinjau = ref<Pratinjau | null>(null);
 const hasil = ref<{ barisBaru: number; barisBerubah: number; barisUnchanged: number; ledgerBaru: number; diff: Record<string, { label: string; lama: string; baru: string }[]> } | null>(null);
 
@@ -36,7 +24,7 @@ const uploads = ref<Upload[]>([]);
 const detailUpload = ref<Upload | null>(null);
 
 async function muatUploads() {
-  const d = await api.get<{ items: Upload[] }>("/api/uploads");
+  const d = await uploadsApi.list();
   uploads.value = d.items;
 }
 onMounted(muatUploads);
@@ -44,7 +32,7 @@ onMounted(muatUploads);
 const sampel = ref<{ nama: string; ukuran: number; deskripsi: string }[]>([]);
 onMounted(async () => {
   try {
-    const d = await api.get<{ items: typeof sampel.value }>("/api/samples");
+    const d = await samplesApi.list();
     sampel.value = d.items;
   } catch {
     /* abaikan */
@@ -54,7 +42,7 @@ onMounted(async () => {
 async function pakaiSampel(nama: string) {
   galat.value = "";
   try {
-    const d = await api.get<{ nama: string; isi: string }>(`/api/samples/${encodeURIComponent(nama)}`);
+    const d = await samplesApi.get(nama);
     namaFile.value = d.nama;
     isi.value = d.isi;
     langkah.value = 1;
@@ -92,7 +80,7 @@ async function pratinjaukan() {
   }
   memproses.value = true;
   try {
-    pratinjau.value = await api.post<Pratinjau>("/api/uploads/preview", {
+    pratinjau.value = await uploadsApi.preview({
       hospitalId: hospitalId.value,
       periode: periode.value,
       namaFile: namaFile.value || "tanpa-nama.txt",
@@ -110,7 +98,7 @@ async function commit() {
   galat.value = "";
   memproses.value = true;
   try {
-    hasil.value = await api.post("/api/uploads/commit", {
+    hasil.value = await uploadsApi.commit({
       hospitalId: hospitalId.value,
       periode: periode.value,
       namaFile: namaFile.value || "tanpa-nama.txt",
@@ -141,7 +129,7 @@ function ulang() {
 }
 
 async function arsip(u: Upload) {
-  await api.post(`/api/uploads/${u.id}/arsip`);
+  await uploadsApi.arsip(u.id);
   await muatUploads();
 }
 

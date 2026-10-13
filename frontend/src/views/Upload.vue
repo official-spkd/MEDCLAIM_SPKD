@@ -7,7 +7,7 @@ import type { Upload, DQReport } from "../types";
 import PageHeader from "../components/PageHeader.vue";
 
 const langkah = ref(1);
-const hospitalId = ref(store.hospitals[0]?.id ?? "rs1");
+const hospitalId = ref(store.hospitals[0]?.id ?? "");
 const periode = ref(new Date().toISOString().slice(0, 7));
 const namaFile = ref("");
 const isi = ref("");

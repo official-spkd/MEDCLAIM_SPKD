@@ -1,0 +1,1865 @@
+{
+  "info": {
+    "name": "MedClaim SPKD API",
+    "description": "Koleksi untuk backend MedClaim (Go + Gin + GORM + PostgreSQL).\n\n## Cara pakai\n1. Jalankan backend: `go run ./cmd/server` (default http://localhost:8080).\n2. Impor koleksi ini dan environment **MedClaim Local**, lalu pilih environment tersebut.\n3. Jalankan salah satu request **Auth > Login** (sandi seed: `password123`). Cookie sesi disimpan otomatis.\n4. Jalankan **Bootstrap** sekali untuk mengisi variabel `hospitalId`, `dpjpId`, `templateId`.\n5. Untuk data klaim: **Upload > Samples > Muat vclaim-detail.txt**, lalu **Preview** dan **Commit**.\n6. Request lain (Episodes, Ledger, Query) menyimpan id yang dibutuhkan ke variabel koleksi secara otomatis.\n\n## Konvensi\n- Autentikasi: cookie `medclaim_sesi` (HttpOnly). Tanpa sesi: **401**.\n- Error: `{\"pesan\": \"...\", \"data\": ...}`. 403 = peran tidak berwenang, 404 = tidak ditemukan, 409 = konflik (mis. gerbang DQ), 422 = validasi gagal.\n- Filter standar analitik/klaim: `rs`, `upload`, `tipe` (SEMUA|RANAP|RJTP), `dari`, `sampai` (yyyy-mm-dd).\n- Non-superadmin selalu terkunci ke rumah sakit miliknya; parameter `rs` hanya berlaku untuk SUPERADMIN.\n\n## Akun seed (password `password123`)\n`admin@`, `casemix@`, `coder@`, `direktur@`, `dpjp@`, `dpjp02@` … `dpjp06@` + `demo.medclaim.id`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "password",
+      "value": "password123"
+    },
+    {
+      "key": "periode",
+      "value": "2025-11"
+    },
+    {
+      "key": "hospitalId",
+      "value": ""
+    },
+    {
+      "key": "role",
+      "value": ""
+    },
+    {
+      "key": "episodeId",
+      "value": ""
+    },
+    {
+      "key": "sep",
+      "value": ""
+    },
+    {
+      "key": "ledgerId",
+      "value": ""
+    },
+    {
+      "key": "queryId",
+      "value": ""
+    },
+    {
+      "key": "uploadId",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "dpjpId",
+      "value": ""
+    },
+    {
+      "key": "templateId",
+      "value": ""
+    },
+    {
+      "key": "sampleNama",
+      "value": "vclaim-detail.txt"
+    },
+    {
+      "key": "sampleIsiJson",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "description": "Tanpa autentikasi.",
+      "item": [
+        {
+          "name": "Liveness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Proses hidup (tidak menyentuh database)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Readiness",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ready",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "ready"
+              ]
+            },
+            "description": "Siap melayani; 503 bila database tidak terjangkau."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "description": "Login/logout berbasis cookie sesi.",
+      "item": [
+        {
+          "name": "Login — SUPERADMIN",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login sebagai SUPERADMIN. Cookie sesi `medclaim_sesi` disimpan otomatis oleh Postman dan dipakai request berikutnya. Login ulang sebagai peran lain akan menggantikan sesi.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@demo.medclaim.id\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('login 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "setv('role', j.role);",
+                  "if (j.hospitalId) setv('hospitalId', j.hospitalId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login — CASEMIX",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login sebagai CASEMIX. Cookie sesi `medclaim_sesi` disimpan otomatis oleh Postman dan dipakai request berikutnya. Login ulang sebagai peran lain akan menggantikan sesi.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"casemix@demo.medclaim.id\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('login 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "setv('role', j.role);",
+                  "if (j.hospitalId) setv('hospitalId', j.hospitalId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login — CODER",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login sebagai CODER. Cookie sesi `medclaim_sesi` disimpan otomatis oleh Postman dan dipakai request berikutnya. Login ulang sebagai peran lain akan menggantikan sesi.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"coder@demo.medclaim.id\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('login 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "setv('role', j.role);",
+                  "if (j.hospitalId) setv('hospitalId', j.hospitalId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login — DIREKTUR",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login sebagai DIREKTUR. Cookie sesi `medclaim_sesi` disimpan otomatis oleh Postman dan dipakai request berikutnya. Login ulang sebagai peran lain akan menggantikan sesi.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"direktur@demo.medclaim.id\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('login 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "setv('role', j.role);",
+                  "if (j.hospitalId) setv('hospitalId', j.hospitalId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login — DPJP (Penyakit Dalam)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Login sebagai DPJP (Penyakit Dalam). Cookie sesi `medclaim_sesi` disimpan otomatis oleh Postman dan dipakai request berikutnya. Login ulang sebagai peran lain akan menggantikan sesi.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"dpjp@demo.medclaim.id\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('login 200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "setv('role', j.role);",
+                  "if (j.hospitalId) setv('hospitalId', j.hospitalId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login — kredensial salah (negatif)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Harus 401 dengan pesan generik (tidak membocorkan apakah email terdaftar).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@demo.medclaim.id\",\n  \"password\": \"salah\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Siapa saya",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "me"
+              ]
+            },
+            "description": "Identitas sesi aktif (tipe `Sesi`)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Menghapus sesi. Idempoten."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Bootstrap",
+      "description": "Pemuat awal frontend.",
+      "item": [
+        {
+          "name": "Bootstrap",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/bootstrap",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "bootstrap"
+              ]
+            },
+            "description": "Berisi `me`, `hospitals`, `uploads`, `templates`, `settings`, `dokter`; `users` hanya untuk SUPERADMIN. Test script mengisi `hospitalId`, `dpjpId`, `templateId`, `uploadId`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "if (j.hospitals && j.hospitals.length) setv('hospitalId', j.hospitals[0].id);",
+                  "if (j.dokter && j.dokter.length) setv('dpjpId', j.dokter[0].id);",
+                  "if (j.templates && j.templates.length) setv('templateId', j.templates[0].id);",
+                  "if (j.uploads && j.uploads.length) setv('uploadId', j.uploads[0].id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Analitik",
+      "description": "Dashboard, anomali, finansial. Semua menerima filter standar.",
+      "item": [
+        {
+          "name": "Dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard?",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "dashboard"
+              ],
+              "query": [
+                {
+                  "key": "rs",
+                  "value": "{{hospitalId}}",
+                  "disabled": true
+                },
+                {
+                  "key": "upload",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "tipe",
+                  "value": "SEMUA",
+                  "disabled": true
+                },
+                {
+                  "key": "dari",
+                  "value": "2025-10-01",
+                  "disabled": true
+                },
+                {
+                  "key": "sampai",
+                  "value": "2025-12-31",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "KPI, tren, distribusi kelas rugi, top CBG, kelas rawat, readiness. DPJP hanya menerima `kpi` dan `readiness`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Anomali",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/anomali?",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "anomali"
+              ],
+              "query": [
+                {
+                  "key": "rs",
+                  "value": "{{hospitalId}}",
+                  "disabled": true
+                },
+                {
+                  "key": "tipe",
+                  "value": "SEMUA",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "LOS outlier, billing nol/dominan, SEP ganda, readmisi ≤ 30 hari."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Finansial",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/financial?",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "financial"
+              ],
+              "query": [
+                {
+                  "key": "rs",
+                  "value": "{{hospitalId}}",
+                  "disabled": true
+                },
+                {
+                  "key": "tipe",
+                  "value": "SEMUA",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Rincian 18 komponen biaya. **403 untuk DPJP.**"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Klaim (Episodes)",
+      "description": "Episode klaim aktif (versi terbaru per SEP).",
+      "item": [
+        {
+          "name": "Daftar episode",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/episodes?",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "episodes"
+              ],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "kelasRugi",
+                  "value": "S1_CODING",
+                  "disabled": true
+                },
+                {
+                  "key": "tipe",
+                  "value": "RANAP",
+                  "disabled": true
+                },
+                {
+                  "key": "kelas",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "sev",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "dari",
+                  "value": "2025-11-01",
+                  "disabled": true
+                },
+                {
+                  "key": "sampai",
+                  "value": "2025-11-30",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Filter: `q` (SEP/MR/nama/CBG/ICD), `kelasRugi`, `kelas`, `sev`, plus filter standar. DPJP hanya melihat pasien miliknya dan tanpa angka uang. Test script menyimpan `episodeId` & `sep`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json();",
+                  "if (j.items && j.items.length) { setv('episodeId', j.items[0].id); setv('sep', j.items[0].noSep); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detail episode",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/episodes/{{episodeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "episodes",
+                "{{episodeId}}"
+              ]
+            },
+            "description": "Berisi `episode` (+ `readiness`, `anomali`) dan `versi` (riwayat). 403 bila DPJP membuka pasien orang lain."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Upload & Kualitas Data",
+      "description": "Akses: SUPERADMIN, CASEMIX (kecuali daftar upload). Isi file dikirim sebagai string JSON.",
+      "item": [
+        {
+          "name": "Daftar upload",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/uploads",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "uploads"
+              ]
+            },
+            "description": "Upload non-hapus dalam cakupan RS (berisi `dqReport`). Semua peran."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json(); if (j.items && j.items.length) setv('uploadId', j.items[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Samples",
+          "description": "File contoh V-Claim. Jalankan salah satu 'Muat ...' sebelum Preview/Commit; ia mengisi sampleNama, periode, dan sampleIsiJson.",
+          "item": [
+            {
+              "name": "Daftar sampel",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/samples",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "samples"
+                  ]
+                },
+                "description": "vclaim-basic, vclaim-detail, vclaim-detail-v2, vclaim-broken."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Muat vclaim-detail.txt",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/samples/vclaim-detail.txt",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "samples",
+                    "vclaim-detail.txt"
+                  ]
+                },
+                "description": "Format Detail (41 kolom), lolos gerbang DQ. Mengisi variabel body Preview/Commit."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const j = pm.response.json();",
+                      "setv('sampleNama', j.nama);",
+                      "setv('periode', '2025-11');",
+                      "setv('sampleIsiJson', JSON.stringify(j.isi).slice(1, -1)); // di-escape agar aman di dalam string JSON"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Muat vclaim-detail-v2.txt",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/samples/vclaim-detail-v2.txt",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "samples",
+                    "vclaim-detail-v2.txt"
+                  ]
+                },
+                "description": "Revisi Detail (6 baris berubah) — muat SETELAH vclaim-detail di-commit untuk uji versioning. Mengisi variabel body Preview/Commit."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const j = pm.response.json();",
+                      "setv('sampleNama', j.nama);",
+                      "setv('periode', '2025-11');",
+                      "setv('sampleIsiJson', JSON.stringify(j.isi).slice(1, -1)); // di-escape agar aman di dalam string JSON"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Muat vclaim-basic.txt",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/samples/vclaim-basic.txt",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "samples",
+                    "vclaim-basic.txt"
+                  ]
+                },
+                "description": "Format Basic, skor DQ 40 -> BLOKIR; commit memakai request 'Commit dengan override'. Mengisi variabel body Preview/Commit."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const j = pm.response.json();",
+                      "setv('sampleNama', j.nama);",
+                      "setv('periode', '2025-10');",
+                      "setv('sampleIsiJson', JSON.stringify(j.isi).slice(1, -1)); // di-escape agar aman di dalam string JSON"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Muat vclaim-broken.txt",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/samples/vclaim-broken.txt",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "samples",
+                    "vclaim-broken.txt"
+                  ]
+                },
+                "description": "File rusak (SEP ganda, tanggal mustahil, tarif 0) — uji gerbang DQ. Mengisi variabel body Preview/Commit."
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                      "pm.test('200', () => pm.response.to.have.status(200));",
+                      "const j = pm.response.json();",
+                      "setv('sampleNama', j.nama);",
+                      "setv('periode', '2025-12');",
+                      "setv('sampleIsiJson', JSON.stringify(j.isi).slice(1, -1)); // di-escape agar aman di dalam string JSON"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Preview (validasi + skor DQ)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/uploads/preview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "uploads",
+                "preview"
+              ]
+            },
+            "description": "Memvalidasi tanpa menyimpan. Jalankan 'Muat ...' di folder Samples dulu agar {{sampleIsiJson}} terisi. Respons: `format`, `totalBaris`, `barisValid`, `barisGagal`, `gagalDetail`, `dq` (skor, grade, 20 aturan, dimensi, gerbang), `duplikatSep`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hospitalId\": \"{{hospitalId}}\",\n  \"periode\": \"{{periode}}\",\n  \"namaFile\": \"{{sampleNama}}\",\n  \"isi\": \"{{sampleIsiJson}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Commit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/uploads/commit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "uploads",
+                "commit"
+              ]
+            },
+            "description": "Menyimpan episode (versioning per SEP) + membuat kandidat ledger otomatis. Gerbang DQ BLOKIR -> 409 kecuali `override: true` dengan `alasanOverride` >= 10 karakter (hanya SUPERADMIN/CASEMIX). Respons: `upload`, `barisBaru`, `barisBerubah`, `barisUnchanged`, `ledgerBaru`, `diff`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hospitalId\": \"{{hospitalId}}\",\n  \"periode\": \"{{periode}}\",\n  \"namaFile\": \"{{sampleNama}}\",\n  \"isi\": \"{{sampleIsiJson}}\",\n  \"override\": false,\n  \"alasanOverride\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json(); if (j.upload) setv('uploadId', j.upload.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Commit dengan override (file Basic / rusak)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/uploads/commit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "uploads",
+                "commit"
+              ]
+            },
+            "description": "Untuk file yang diblokir gerbang DQ (mis. vclaim-basic.txt skor 40, atau vclaim-broken.txt). Muat sampelnya dulu.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"hospitalId\": \"{{hospitalId}}\",\n  \"periode\": \"{{periode}}\",\n  \"namaFile\": \"{{sampleNama}}\",\n  \"isi\": \"{{sampleIsiJson}}\",\n  \"override\": true,\n  \"alasanOverride\": \"Override uji dari Postman, data diverifikasi manual\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Arsipkan upload",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/uploads/{{uploadId}}/arsip",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "uploads",
+                "{{uploadId}}",
+                "arsip"
+              ]
+            },
+            "description": "Ubah status menjadi ARSIP."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Hapus upload",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/uploads/{{uploadId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "uploads",
+                "{{uploadId}}"
+              ]
+            },
+            "description": "Soft delete (status DIHAPUS). **Hanya SUPERADMIN.**"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Recovery Ledger",
+      "description": "Akses baca: SUPERADMIN, CASEMIX, DIREKTUR. Tulis: SUPERADMIN, CASEMIX.",
+      "item": [
+        {
+          "name": "Daftar ledger + kalibrasi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ledger?",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ledger"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "KANDIDAT",
+                  "disabled": true
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Filter `status` (KANDIDAT|DIPERIKSA|DIKOREKSI|DIAJUKAN|HASIL|TIDAK_BERUBAH|SEMUA), `q`. Menyimpan `ledgerId`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json(); if (j.items && j.items.length) setv('ledgerId', j.items[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Detail ledger + riwayat event",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/ledger/{{ledgerId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ledger",
+                "{{ledgerId}}"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buat kandidat manual",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/ledger",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "ledger"
+              ]
+            },
+            "description": "Dari satu episode. 422 untuk episode SURPLUS; 409 bila SEP sudah ada di ledger.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"episodeId\": \"{{episodeId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Transisi status",
+          "description": "Urutan sah: KANDIDAT → DIPERIKSA → DIKOREKSI → DIAJUKAN → HASIL. Jalankan berurutan pada `ledgerId` yang sama.",
+          "item": [
+            {
+              "name": "1. KANDIDAT → DIPERIKSA",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ledger/{{ledgerId}}/transisi",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ledger",
+                    "{{ledgerId}}",
+                    "transisi"
+                  ]
+                },
+                "description": "Casemix/Coder/Superadmin.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"ke\": \"DIPERIKSA\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "2. DIPERIKSA → DIKOREKSI",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ledger/{{ledgerId}}/transisi",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ledger",
+                    "{{ledgerId}}",
+                    "transisi"
+                  ]
+                },
+                "description": "Wajib `referensiRm` (≥ 3 karakter).",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"ke\": \"DIKOREKSI\",\n  \"referensiRm\": \"RM-10100\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "3. DIKOREKSI → DIAJUKAN",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ledger/{{ledgerId}}/transisi",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ledger",
+                    "{{ledgerId}}",
+                    "transisi"
+                  ]
+                },
+                "description": "Hanya Casemix/Superadmin.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"ke\": \"DIAJUKAN\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "4. DIAJUKAN → HASIL",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ledger/{{ledgerId}}/transisi",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ledger",
+                    "{{ledgerId}}",
+                    "transisi"
+                  ]
+                },
+                "description": "Hanya Casemix/Superadmin; wajib `realisasi`.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"ke\": \"HASIL\",\n  \"realisasi\": 150000\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                      "pm.test('status 200', () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "DIPERIKSA → TIDAK_BERUBAH",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ledger/{{ledgerId}}/transisi",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ledger",
+                    "{{ledgerId}}",
+                    "transisi"
+                  ]
+                },
+                "description": "Wajib `alasan` ≥ 10 karakter; Casemix/Superadmin.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"ke\": \"TIDAK_BERUBAH\",\n  \"alasan\": \"Tidak ada koreksi yang dapat diajukan\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "name": "Reopen HASIL → DIPERIKSA",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/api/ledger/{{ledgerId}}/transisi",
+                  "host": [
+                    "{{baseUrl}}"
+                  ],
+                  "path": [
+                    "api",
+                    "ledger",
+                    "{{ledgerId}}",
+                    "transisi"
+                  ]
+                },
+                "description": "Wajib `alasan` ≥ 10 karakter; Casemix/Superadmin.",
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"ke\": \"DIPERIKSA\",\n  \"alasan\": \"Ditemukan dokumen pendukung baru\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Query Dokumen",
+      "description": "Klarifikasi casemix/coder → DPJP. Daftar: SUPERADMIN, CASEMIX, CODER, DPJP. Buat: SUPERADMIN, CASEMIX, CODER.",
+      "item": [
+        {
+          "name": "Daftar template",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/templates",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "templates"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Daftar query",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/queries?",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "queries"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "TERKIRIM",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Filter `status` (DRAFT|TERKIRIM|DIJAWAB|TERLAMBAT|SEMUA). DPJP hanya melihat query miliknya. Menyimpan `queryId`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json(); if (j.items && j.items.length) setv('queryId', j.items[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Kirim query ke DPJP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/queries",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "queries"
+              ]
+            },
+            "description": "`sep` harus episode aktif; `dpjpId` harus DPJP pada episode itu (422 bila bukan). Kosongkan `pertanyaan` untuk memakai isi template. Tenggat = SLA (setting `sla.query_hari`). Jalankan Daftar episode dulu agar `sep` terisi, dan pilih `dpjpId` sesuai DPJP episode.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sep\": \"{{sep}}\",\n  \"dpjpId\": \"{{dpjpId}}\",\n  \"templateId\": \"{{templateId}}\",\n  \"pertanyaan\": \"\",\n  \"konteks\": \"Uji dari Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('200/422', () => pm.expect([200,422]).to.include(pm.response.code));",
+                  "if (pm.response.code === 200) setv('queryId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Jawab query",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/queries/{{queryId}}/answer",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "queries",
+                "{{queryId}}",
+                "answer"
+              ]
+            },
+            "description": "DPJP pemilik query, atau Casemix/Coder/Superadmin. Jawaban ≥ 5 karakter. Sudah dijawab → 409 (terkunci).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"jawaban\": \"Diagnosis sudah sesuai dengan rekam medis pasien.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin (SUPERADMIN)",
+      "description": "Selain SUPERADMIN → 403.",
+      "item": [
+        {
+          "name": "Daftar pengguna",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users"
+              ]
+            },
+            "description": ""
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const j = pm.response.json(); if (j.items && j.items.length) setv('userId', j.items[j.items.length-1].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Buat pengguna",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users"
+              ]
+            },
+            "description": "Peran selain SUPERADMIN wajib `hospitalId`; DPJP wajib `dpjpKode`. Bila `password` kosong, backend membuat password acak dan mengembalikannya **sekali** di `passwordSementara`.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"uji@demo.medclaim.id\",\n  \"nama\": \"Pengguna Uji\",\n  \"role\": \"CODER\",\n  \"hospitalId\": \"{{hospitalId}}\",\n  \"spesialisasi\": null,\n  \"dpjpKode\": null,\n  \"password\": \"password123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('200/409', () => pm.expect([200,409]).to.include(pm.response.code));",
+                  "if (pm.response.code === 200) setv('userId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Aktif/nonaktifkan pengguna",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users/{{userId}}/toggle",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                "{{userId}}",
+                "toggle"
+              ]
+            },
+            "description": "Toggle `aktif`. Menonaktifkan langsung mencabut semua sesi pengguna itu. Tidak bisa pada akun sendiri (422)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Jejak audit",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/audit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "audit"
+              ]
+            },
+            "description": "200 log terbaru."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const setv = (k, v) => { if (pm.environment.name) pm.environment.set(k, v); else pm.collectionVariables.set(k, v); };",
+                  "pm.test('status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

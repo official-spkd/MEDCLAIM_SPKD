@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
-import { uploadsApi, samplesApi, ApiError, modeDemo } from "@/api";
+import { uploadsApi, ApiError, modeDemo } from "@/api";
 import { store } from "@/stores/session";
 import { tanggalWaktu, angka } from "@/utils/format";
 import type { Upload, UploadPreview as Pratinjau } from "@/types";
@@ -29,29 +29,6 @@ async function muatUploads() {
 }
 onMounted(muatUploads);
 
-const sampel = ref<{ nama: string; ukuran: number; deskripsi: string }[]>([]);
-onMounted(async () => {
-  try {
-    const d = await samplesApi.list();
-    sampel.value = d.items;
-  } catch {
-    /* abaikan */
-  }
-});
-
-async function pakaiSampel(nama: string) {
-  galat.value = "";
-  try {
-    const d = await samplesApi.get(nama);
-    namaFile.value = d.nama;
-    isi.value = d.isi;
-    langkah.value = 1;
-    pratinjau.value = null;
-  } catch (e: any) {
-    galat.value = e?.message ?? "Gagal mengambil sampel.";
-  }
-}
-
 function dariFile(e: Event) {
   const f = (e.target as HTMLInputElement).files?.[0];
   if (!f) return;
@@ -75,7 +52,7 @@ async function pratinjaukan() {
   galat.value = "";
   okPesan.value = "";
   if (!isi.value.trim()) {
-    galat.value = "Isi file masih kosong — pilih file atau contoh dahulu.";
+    galat.value = "Isi file masih kosong — pilih file dahulu.";
     return;
   }
   memproses.value = true;
@@ -169,17 +146,6 @@ const labelDimensi: Record<string, string> = {
         <div class="kolom-form">
           <label>File ekspor (.txt / .tsv / .csv)</label>
           <input type="file" accept=".txt,.tsv,.csv" @change="dariFile" />
-        </div>
-      </div>
-      <div>
-        <b style="font-size: 12.5px; color: var(--text-2)">ATAU pakai contoh siap-uji:</b>
-        <div style="display: flex; flex-direction: column; gap: 7px; margin-top: 8px">
-          <button v-for="s in sampel" :key="s.nama" class="btn garis" style="justify-content: flex-start; text-align: left" @click="pakaiSampel(s.nama)">
-            <span>
-              <b>{{ s.nama }}</b><br />
-              <span style="font-size: 11.5px; color: var(--text-3)">{{ s.deskripsi }}</span>
-            </span>
-          </button>
         </div>
       </div>
     </div>

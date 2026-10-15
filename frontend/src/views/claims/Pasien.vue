@@ -64,6 +64,12 @@ function toggle(mr: string) {
   terbuka.value = terbuka.value === mr ? null : mr;
 }
 
+// Usia saat masuk pada episode terbaru — sama dengan rumus di Claim Explorer.
+function usiaPasien(p: Pasien): number {
+  const terbaru = p.episodes.reduce((a, b) => (b.tglMasuk > a.tglMasuk ? b : a));
+  return usia(p.lahir, terbaru.tglMasuk);
+}
+
 function tanggalDekat(a: string, b: string): boolean {
   const d1 = new Date(a).getTime();
   const d2 = new Date(b).getTime();
@@ -93,7 +99,7 @@ function tanggalDekat(a: string, b: string): boolean {
         <div class="avatar" style="background: var(--navy); color: white">{{ p.nama.slice(0, 1) }}</div>
         <div style="min-width: 180px">
           <b>{{ p.nama }}</b>
-          <div style="font-size: 11.5px; color: var(--text-3)">{{ p.mr }} · {{ usia(p.lahir) }} th · {{ p.jk }}</div>
+          <div style="font-size: 11.5px; color: var(--text-3)">{{ p.mr }} · {{ usiaPasien(p) }} th · {{ p.jk }}</div>
         </div>
         <span class="badge" :class="p.episodes.length > 1 ? 'kuning' : 'abu'">{{ p.episodes.length }} episode</span>
         <span v-if="p.episodes.length > 1" class="badge" :class="p.episodes.some((e) => e.kelasRugi !== 'SURPLUS' && e.kelasRugi !== 'RAHASIA') ? 'merah' : 'hijau'">

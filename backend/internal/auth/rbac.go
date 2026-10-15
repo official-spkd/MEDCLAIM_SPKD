@@ -19,14 +19,14 @@ const (
 var matriks = map[string][]string{
 	GrupAnalitik: {"SUPERADMIN", "CASEMIX", "CODER", "DIREKTUR"},
 	GrupUpload:   {"SUPERADMIN", "CASEMIX"},
-	GrupLedger:   {"SUPERADMIN", "CASEMIX", "DIREKTUR"},
+	GrupLedger:   {"SUPERADMIN", "CASEMIX", "CODER", "DIREKTUR"},
 	GrupQuery:    {"SUPERADMIN", "CASEMIX", "CODER"},
 	GrupAdmin:    {"SUPERADMIN"},
 }
 
 func BolehAkses(grup, peran string) bool { return slices.Contains(matriks[grup], peran) }
 
-// BolehMutasi: akses tulis. LEDGER hanya Casemix/Superadmin (Direktur baca-saja).
+// BolehMutasi: akses tulis. LEDGER hanya Casemix/Superadmin (Coder dan Direktur baca-saja).
 func BolehMutasi(grup, peran string) bool {
 	if !BolehAkses(grup, peran) {
 		return false

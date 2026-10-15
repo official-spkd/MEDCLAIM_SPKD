@@ -118,7 +118,7 @@ export const bisaAkses = computed<Akses>(() => {
   return {
     analitik: ["SUPERADMIN", "CASEMIX", "CODER", "DIREKTUR"].includes(peran ?? ""),
     upload: peran === "SUPERADMIN" || peran === "CASEMIX",
-    ledger: ["SUPERADMIN", "CASEMIX", "DIREKTUR"].includes(peran ?? ""),
+    ledger: ["SUPERADMIN", "CASEMIX", "CODER", "DIREKTUR"].includes(peran ?? ""),
     ledgerTulis: peran === "SUPERADMIN" || peran === "CASEMIX",
     query: ["SUPERADMIN", "CASEMIX", "CODER"].includes(peran ?? ""),
     admin: peran === "SUPERADMIN",

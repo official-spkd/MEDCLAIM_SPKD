@@ -49,7 +49,7 @@ const faq = [
     id: "rbac",
     tanya: "Siapa boleh melihat apa?",
     jawab:
-      "Super Admin: semua RS + administrasi. Casemix: upload, ledger (tulis), query. Coder: analitik + query. Direktur: analitik + ledger (baca-saja). DPJP: hanya episode pasiennya sendiri, TANPA kolom finansial, dengan inbox query. Penyembunyian finansial diterapkan di server (bukan hanya UI).",
+      "Super Admin: semua RS + administrasi. Casemix: upload, ledger (tulis), query. Coder: analitik + query + ledger (baca-saja). Direktur: analitik + ledger (baca-saja). DPJP: hanya episode pasiennya sendiri, TANPA kolom finansial, dengan inbox query. Penyembunyian finansial diterapkan di server (bukan hanya UI).",
   },
   {
     id: "arsitektur",

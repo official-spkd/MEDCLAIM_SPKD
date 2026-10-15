@@ -189,7 +189,7 @@ async function kirimJawaban() {
             <p style="margin: 6px 0 0; font-size: 13.5px">{{ terpilih.jawaban }}</p>
           </div>
         </template>
-        <template v-else-if="store.sesi && (store.sesi.id === terpilih.dpjpId || bisaAkses.query)">
+        <template v-else-if="store.sesi && store.sesi.id === terpilih.dpjpId">
           <div class="kolom-form">
             <label>Jawaban Anda</label>
             <textarea v-model="jawaban" placeholder="Jelaskan temuan klinis / dokumen pendukung…" />

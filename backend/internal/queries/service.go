@@ -232,12 +232,12 @@ func (s *Service) Jawab(ctx context.Context, p *auth.Principal, id, jawaban stri
 		if q.Status == "DIJAWAB" {
 			return response.Conflict("Query sudah dijawab — jawaban terkunci.")
 		}
-		if p.Role == "DPJP" {
-			if q.DpjpID != p.ID {
-				return response.Forbidden("Query ini bukan untuk DPJP Anda.")
-			}
-		} else if !auth.BolehMutasi(auth.GrupQuery, p.Role) {
-			return response.Forbidden("Peran Anda tidak dapat menjawab query.")
+		// Hanya DPJP tujuan yang boleh menjawab; Casemix/Coder/Superadmin hanya mengajukan.
+		if p.Role != "DPJP" {
+			return response.Forbidden("Hanya DPJP yang dituju yang dapat menjawab query.")
+		}
+		if q.DpjpID != p.ID {
+			return response.Forbidden("Query ini bukan untuk DPJP Anda.")
 		}
 		if len([]rune(jawaban)) < 5 {
 			return response.Unprocessable("Jawaban minimal 5 karakter.")

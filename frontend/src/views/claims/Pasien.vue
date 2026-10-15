@@ -90,7 +90,7 @@ function tanggalDekat(a: string, b: string): boolean {
         style="display: flex; align-items: center; gap: 14px; padding: 13px 18px; cursor: pointer; flex-wrap: wrap"
         @click="toggle(p.mr)"
       >
-        <div class="avatar" style="background: var(--navy)">{{ p.nama.slice(0, 1) }}</div>
+        <div class="avatar" style="background: var(--navy); color: white">{{ p.nama.slice(0, 1) }}</div>
         <div style="min-width: 180px">
           <b>{{ p.nama }}</b>
           <div style="font-size: 11.5px; color: var(--text-3)">{{ p.mr }} · {{ usia(p.lahir) }} th · {{ p.jk }}</div>

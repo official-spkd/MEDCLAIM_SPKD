@@ -147,6 +147,14 @@ func (s *Service) List(ctx context.Context, p *auth.Principal, f Filter) (*ListR
 	return &ListResult{Total: len(items), Items: items}, nil
 }
 
+// labelAnomali: cermin labelJenis di frontend (views/quality/Anomali.vue).
+var labelAnomali = map[string]string{
+	"LOS_OUTLIER":     "LOS Outlier",
+	"READMISI":        "Readmisi ≤30 hari",
+	"DUPLIKAT":        "Duplikat SEP",
+	"SELISIH_EKSTREM": "Selisih Ekstrem",
+}
+
 type DetailResult struct {
 	Episode EpisodeDTO   `json:"episode"`
 	Versi   []EpisodeDTO `json:"versi"`
@@ -176,9 +184,26 @@ func (s *Service) Detail(ctx context.Context, p *auth.Principal, id string) (*De
 
 	lihat := auth.BolehLihatFinansial(p.Role)
 	sc := ToScoring(&ep)
+	// Anomali bergantung pada episode lain (median LOS grup, SEP ganda, readmisi
+	// per MR), jadi dideteksi atas seluruh episode aktif RS ini lalu disaring.
+	aktif, err := s.LoadActive(ctx, p, Filter{Rs: ep.HospitalID})
+	if err != nil {
+		return nil, err
+	}
+	scAktif := make([]*scoring.Episode, len(aktif))
+	for i := range aktif {
+		scAktif[i] = ToScoring(&aktif[i])
+	}
 	anom := []string{}
-	for _, a := range scoring.DeteksiAnomali([]*scoring.Episode{sc}) {
-		anom = append(anom, a.Detail)
+	for _, a := range scoring.DeteksiAnomali(scAktif) {
+		if a.EpisodeID != ep.ID {
+			continue
+		}
+		label := labelAnomali[a.Jenis]
+		if label == "" {
+			label = a.Jenis
+		}
+		anom = append(anom, label+" — "+a.Detail)
 	}
 	ready := scoring.Readiness(sc)
 	dto := ToDTO(&ep, lihat)

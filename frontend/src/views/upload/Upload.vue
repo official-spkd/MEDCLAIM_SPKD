@@ -301,4 +301,7 @@ const labelDimensi: Record<string, string> = {
       </table>
     </div>
   </div>
+  <div v-if="langkah === 4" style="margin-top: 14px">
+    <button class="btn utama" @click="ulang">← Kembali ke Unggah File</button>
+  </div>
 </template>

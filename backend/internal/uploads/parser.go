@@ -198,6 +198,7 @@ type AddOn struct {
 }
 
 type BarisValid struct {
+	Nomor         int // nomor baris pada file (untuk rincian laporan DQ)
 	NoSep         string
 	NoKartu       string
 	NoMr          string
@@ -336,7 +337,7 @@ func validasiBaris(p hasilParse) hasilValidasi {
 		}
 
 		valid = append(valid, BarisValid{
-			NoSep: noSep, NoKartu: noKartu, NoMr: noMr, NamaPasien: namaPasien,
+			Nomor: b.Nomor, NoSep: noSep, NoKartu: noKartu, NoMr: noMr, NamaPasien: namaPasien,
 			TglLahir: tglLahir, JenisKelamin: jk, TglMasuk: tglMasuk, TglKeluar: tglKeluar,
 			Los: los, KelasRawat: kelasRawat, TipeLayanan: tipe,
 			CaraPulang: nilaiBersih(b.Kolom["CARAPULANG"]), DpjpKode: nilaiBersih(b.Kolom["DPJPKODE"]),

@@ -26,7 +26,22 @@ type DQAturan struct {
 	Terpicu   bool   `json:"terpicu"`
 	Jumlah    int    `json:"jumlah"`
 	Pesan     string `json:"pesan"`
+	// Baris = rincian baris yang melanggar aturan (dibatasi batasBarisDQ per aturan; Terpotong = ada yang tidak ikut).
+	Baris     []DQBaris `json:"baris,omitempty"`
+	Terpotong bool      `json:"terpotong,omitempty"`
 }
+
+// DQBaris menunjuk satu baris file yang perlu diperbaiki.
+type DQBaris struct {
+	Nomor      int    `json:"nomor"`
+	NoSep      string `json:"noSep"`
+	NoMr       string `json:"noMr"`
+	Nama       string `json:"nama"`
+	Keterangan string `json:"keterangan"`
+}
+
+// Batas rincian baris per aturan agar laporan tetap ringan; jumlah total tetap akurat.
+const batasBarisDQ = 500
 
 type DQDimensi struct {
 	Kode  string `json:"kode"`
@@ -91,6 +106,13 @@ func evaluasiAturanDQ(baris []BarisValid, ctx KonteksDQ) []DQAturan {
 		}
 	}
 
+	rincian := map[string][]DQBaris{}
+	tandai := func(kode string, b *BarisValid, ket string) {
+		if len(rincian[kode]) < batasBarisDQ {
+			rincian[kode] = append(rincian[kode], DQBaris{Nomor: b.Nomor, NoSep: b.NoSep, NoMr: b.NoMr, Nama: b.NamaPasien, Keterangan: ket})
+		}
+	}
+
 	var off, terbalik, tarifNol, icdInvalid, kelasInvalid, jkInvalid int
 	var losTidakCocok, rjtpLos, dpjpKosong, usiaAnomali, billingNolRanap, masaDepan, drugViolation, tglTakValid int
 	sepHitung := map[string]int{}
@@ -101,55 +123,69 @@ func evaluasiAturanDQ(baris []BarisValid, ctx KonteksDQ) []DQAturan {
 		okMasuk, okKeluar := scoring.TanggalValid(b.TglMasuk), scoring.TanggalValid(b.TglKeluar)
 		if !okMasuk || !okKeluar {
 			tglTakValid++
+			tandai("DQ-VAL-01", b, "Masuk: "+b.TglMasuk+" · Keluar: "+b.TglKeluar)
 		}
 		if okMasuk && b.TglMasuk[:7] != ctx.PeriodeDipilih {
 			off++
+			tandai("DQ-CUP-01", b, "Tanggal masuk "+b.TglMasuk+" di luar periode "+ctx.PeriodeDipilih)
 		}
 		if okMasuk && okKeluar && b.TglKeluar < b.TglMasuk {
 			terbalik++
+			tandai("DQ-VAL-02", b, "Masuk "+b.TglMasuk+" · Keluar "+b.TglKeluar)
 		}
 		if b.TarifInacbg <= 0 {
 			tarifNol++
+			tandai("DQ-VAL-03", b, "Tarif INA-CBG: "+strconv.FormatInt(b.TarifInacbg, 10))
 		}
 		for _, d := range b.Diagnosa {
 			if !scoring.ICD10Valid(d) {
 				icdInvalid++
+				tandai("DQ-VAL-04", b, "Kode ICD tidak valid: "+d)
 				break
 			}
 		}
 		if b.KelasRawat < 1 || b.KelasRawat > 3 {
 			kelasInvalid++
+			tandai("DQ-VAL-05", b, "Kelas rawat: "+strconv.Itoa(b.KelasRawat))
 		}
 		if b.JenisKelamin != "L" && b.JenisKelamin != "P" {
 			jkInvalid++
+			tandai("DQ-VAL-06", b, "Jenis kelamin: "+b.JenisKelamin)
 		}
 		if okMasuk && okKeluar {
 			hari := scoring.SelisihHari(b.TglMasuk, b.TglKeluar)
 			if hari < 0 || scoring.Abs(hari-b.Los) > 1 {
 				losTidakCocok++
+				tandai("DQ-CON-01", b, "LOS "+strconv.Itoa(b.Los)+" hari, selisih tanggal "+strconv.Itoa(hari)+" hari")
 			}
 		}
 		if b.TipeLayanan == "RJTP" && b.Los > 1 {
 			rjtpLos++
+			tandai("DQ-CON-02", b, "RJTP dengan LOS "+strconv.Itoa(b.Los)+" hari")
 		}
 		if b.DpjpKode == "" {
 			dpjpKosong++
+			tandai("DQ-COL-03", b, "Kode DPJP kosong")
 		}
 		if scoring.TanggalValid(b.TglLahir) && okMasuk {
 			umur := scoring.SelisihHari(b.TglLahir, b.TglMasuk)
 			if umur < 0 || float64(umur) > 120*365.25 {
 				usiaAnomali++
+				tandai("DQ-ACC-01", b, "Tgl lahir "+b.TglLahir+" · masuk "+b.TglMasuk)
 			}
 		}
 		if b.TipeLayanan == "RANAP" && b.TotalBilling == 0 {
 			billingNolRanap++
+			tandai("DQ-ACC-02", b, "Rawat inap dengan total billing 0")
 		}
 		if okKeluar && b.TglKeluar > hariIni {
 			masaDepan++
+			tandai("DQ-TIM-01", b, "Tanggal keluar "+b.TglKeluar)
 		}
 		sepHitung[b.NoSep]++
-		if ok, _ := scoring.DrugAlignment(b.Diagnosa, b.Komponen); !ok {
+		if ok, flag := scoring.DrugAlignment(b.Diagnosa, b.Komponen); !ok {
 			drugViolation++
+			tandai("DQ-CON-03", b, strings.Join(flag, "; "))
 		}
 	}
 	sepGanda := 0
@@ -160,8 +196,12 @@ func evaluasiAturanDQ(baris []BarisValid, ctx KonteksDQ) []DQAturan {
 	}
 	sepEksisting := 0
 	for i := range baris {
+		if n := sepHitung[baris[i].NoSep]; n > 1 {
+			tandai("DQ-UNQ-01", &baris[i], "SEP muncul "+strconv.Itoa(n)+"× dalam file")
+		}
 		if ctx.SepEksisting[baris[i].NoSep] {
 			sepEksisting++
+			tandai("DQ-UNQ-02", &baris[i], "SEP sudah ada pada upload sebelumnya")
 		}
 	}
 
@@ -232,6 +272,10 @@ func evaluasiAturanDQ(baris []BarisValid, ctx KonteksDQ) []DQAturan {
 	}
 	for i := range aturan {
 		aturan[i].Terpicu = aturan[i].Jumlah > 0
+		if aturan[i].Terpicu {
+			aturan[i].Baris = rincian[aturan[i].Kode]
+			aturan[i].Terpotong = aturan[i].Jumlah > len(aturan[i].Baris) && len(aturan[i].Baris) > 0
+		}
 	}
 	return aturan
 }

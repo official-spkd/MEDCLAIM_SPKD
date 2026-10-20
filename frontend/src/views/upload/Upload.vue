@@ -5,6 +5,7 @@ import { store, bisaAkses, muatBootstrap } from "@/stores/session";
 import { tanggalWaktu, angka } from "@/utils/format";
 import type { Upload, UploadPreview as Pratinjau } from "@/types";
 import PageHeader from "@/components/layout/PageHeader.vue";
+import AturanDq from "@/components/quality/AturanDq.vue";
 
 const langkah = ref(1);
 const hospitalId = ref(store.hospitals[0]?.id ?? "");
@@ -123,7 +124,6 @@ async function hapus(u: Upload) {
 }
 
 const warnaGrade: Record<string, string> = { A: "hijau", B: "teal", C: "kuning", D: "merah" };
-const ikonSev: Record<string, string> = { KRITIS: "⛔", PERINGATAN: "⚠️", INFO: "ℹ️" };
 const labelDimensi: Record<string, string> = {
   COMPLETENESS: "Kelengkapan", VALIDITY: "Keabsahan", CONSISTENCY: "Konsistensi",
   TIMELINESS: "Ketepatan Waktu", UNIQUENESS: "Keunikan", ACCURACY: "Akurasi", CONFORMITY: "Kesesuaian",
@@ -210,17 +210,7 @@ const labelDimensi: Record<string, string> = {
 
     <div class="kartu" style="margin-bottom: 14px">
       <h3>20 aturan DQ ({{ pratinjau.dq.aturan.filter((a) => a.terpicu).length }} terpicu)</h3>
-      <div style="max-height: 340px; overflow-y: auto">
-        <div v-for="a in pratinjau.dq.aturan" :key="a.kode" class="aturan-dq" :class="{ terpicu: a.terpicu }">
-          <span class="ikon">{{ a.terpicu ? ikonSev[a.severitas] : "✅" }}</span>
-          <div style="flex: 1">
-            <b>{{ a.nama }}</b>
-            <span class="badge" :class="a.severitas === 'KRITIS' ? 'merah' : a.severitas === 'PERINGATAN' ? 'kuning' : 'abu'" style="margin-left: 6px">{{ a.severitas }}</span>
-            <div class="pesan">{{ a.pesan }} <span class="kode">· {{ a.kode }} · {{ a.dimensi }}</span></div>
-          </div>
-          <b v-if="a.terpicu" style="color: var(--merah)">{{ a.jumlah }}</b>
-        </div>
-      </div>
+      <AturanDq :aturan="pratinjau.dq.aturan" :nama-file="namaFile" tampil-dimensi />
     </div>
 
     <div v-if="pratinjau.dq.gerbang === 'BLOKIR'" class="kartu" style="border-color: var(--merah); margin-bottom: 14px">

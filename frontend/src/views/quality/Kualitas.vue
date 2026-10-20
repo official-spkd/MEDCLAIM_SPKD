@@ -5,6 +5,7 @@ import { store } from "@/stores/session";
 import { tanggalWaktu, angka } from "@/utils/format";
 import type { Upload, DQReport } from "@/types";
 import PageHeader from "@/components/layout/PageHeader.vue";
+import AturanDq from "@/components/quality/AturanDq.vue";
 
 const uploads = ref<Upload[]>([]);
 const terpilih = ref<Upload | null>(null);
@@ -24,7 +25,6 @@ onMounted(muat);
 
 const dq = computed<DQReport | null>(() => terpilih.value?.dqReport ?? null);
 const warnaGrade: Record<string, string> = { A: "hijau", B: "teal", C: "kuning", D: "merah" };
-const ikonSev: Record<string, string> = { KRITIS: "⛔", PERINGATAN: "⚠️", INFO: "ℹ️" };
 </script>
 
 <template>
@@ -100,17 +100,7 @@ const ikonSev: Record<string, string> = { KRITIS: "⛔", PERINGATAN: "⚠️", I
 
       <div class="kartu">
         <h3>Aturan DQ ({{ dq.aturan.filter((a) => a.terpicu).length }} dari 20 terpicu)</h3>
-        <div style="max-height: 360px; overflow-y: auto">
-          <div v-for="a in dq.aturan" :key="a.kode" class="aturan-dq" :class="{ terpicu: a.terpicu }">
-            <span class="ikon">{{ a.terpicu ? ikonSev[a.severitas] : "✅" }}</span>
-            <div style="flex: 1">
-              <b>{{ a.nama }}</b>
-              <span class="badge" :class="a.severitas === 'KRITIS' ? 'merah' : a.severitas === 'PERINGATAN' ? 'kuning' : 'abu'" style="margin-left: 6px">{{ a.severitas }}</span>
-              <div class="pesan">{{ a.pesan }} <span class="kode">· {{ a.kode }}</span></div>
-            </div>
-            <b v-if="a.terpicu" style="color: var(--merah)">{{ a.jumlah }}</b>
-          </div>
-        </div>
+        <AturanDq :aturan="dq.aturan" :nama-file="terpilih.namaFile" :tinggi="360" />
       </div>
     </div>
     <div v-else class="kartu"><div class="kosong">Pilih upload di kiri untuk melihat laporan DQ lengkap.</div></div>

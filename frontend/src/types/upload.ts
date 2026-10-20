@@ -8,6 +8,17 @@ export interface DQAturan {
   terpicu: boolean;
   jumlah: number;
   pesan: string;
+  /** Rincian baris pelanggar (dibatasi di backend); terpotong = tidak semua baris ikut. */
+  baris?: DQBaris[];
+  terpotong?: boolean;
+}
+
+export interface DQBaris {
+  nomor: number;
+  noSep: string;
+  noMr: string;
+  nama: string;
+  keterangan: string;
 }
 
 export interface DQReport {

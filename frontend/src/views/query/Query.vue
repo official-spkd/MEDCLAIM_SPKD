@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { queriesApi, ApiError, modeDemo } from "@/api";
 import { store, bisaAkses } from "@/stores/session";
 import { tanggal, tanggalWaktu, angka } from "@/utils/format";
@@ -7,7 +7,7 @@ import { LABEL_STATUS_QUERY } from "@/constants/labels";
 import type { QueryDok } from "@/types";
 import PageHeader from "@/components/layout/PageHeader.vue";
 
-const items = ref<QueryDok[]>([]);
+const semua = ref<QueryDok[]>([]);
 const status = ref("SEMUA");
 const memuat = ref(true);
 const galat = ref("");
@@ -20,7 +20,7 @@ async function muat() {
   memuat.value = true;
   galat.value = "";
   try {
-    items.value = (await queriesApi.list(status.value !== "SEMUA" ? status.value : undefined)).items;
+    semua.value = (await queriesApi.list()).items;
   } catch (e: any) {
     galat.value = e?.message ?? "Gagal memuat query.";
   } finally {
@@ -28,7 +28,14 @@ async function muat() {
   }
 }
 onMounted(muat);
-watch(status, muat);
+
+// Jumlah per status dihitung dari seluruh query; filter status dilakukan di sini.
+const jumlahStatus = computed(() => {
+  const j: Record<string, number> = { SEMUA: semua.value.length };
+  for (const q of semua.value) j[q.status] = (j[q.status] ?? 0) + 1;
+  return j;
+});
+const items = computed(() => (status.value === "SEMUA" ? semua.value : semua.value.filter((q) => q.status === status.value)));
 
 // ---------- Buat query ----------
 const bukaBuat = ref(false);
@@ -85,11 +92,14 @@ async function kirimJawaban() {
     <div class="kolom-form" style="max-width: 200px">
       <label>Status</label>
       <select v-model="status">
-        <option value="SEMUA">Semua status</option>
-        <option v-for="(l, k) in LABEL_STATUS_QUERY" :key="k" :value="k">{{ l }}</option>
+        <option value="SEMUA">Semua status ({{ angka(jumlahStatus.SEMUA ?? 0) }})</option>
+        <option v-for="(l, k) in LABEL_STATUS_QUERY" :key="k" :value="k">{{ l }} ({{ angka(jumlahStatus[k] ?? 0) }})</option>
       </select>
     </div>
     <div style="flex: 1" />
+    <span style="font-size: 12.5px; color: var(--text-2); align-self: center">
+      Menampilkan <b>{{ angka(items.length) }}</b> dari <b>{{ angka(jumlahStatus.SEMUA ?? 0) }}</b> query
+    </span>
     <button v-if="bisaAkses.query" class="btn navy" @click="bukaBuat = true">+ Query Baru</button>
   </div>
 

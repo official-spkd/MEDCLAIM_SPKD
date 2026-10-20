@@ -34,8 +34,9 @@ func (s *Service) base(ctx context.Context) *gorm.DB {
 }
 
 type ListResult struct {
-	Items     []EntryDTO `json:"items"`
-	Kalibrasi Kalibrasi  `json:"kalibrasi"`
+	Items        []EntryDTO     `json:"items"`
+	Kalibrasi    Kalibrasi      `json:"kalibrasi"`
+	JumlahStatus map[string]int `json:"jumlahStatus"`
 }
 
 func (s *Service) List(ctx context.Context, p *auth.Principal, rs, status, cari string) (*ListResult, error) {
@@ -71,7 +72,11 @@ func (s *Service) List(ctx context.Context, p *auth.Principal, rs, status, cari 
 	if err := kq.Find(&kal).Error; err != nil {
 		return nil, err
 	}
-	return &ListResult{Items: items, Kalibrasi: HitungKalibrasi(kal)}, nil
+	jumlah := map[string]int{"SEMUA": len(kal)}
+	for _, e := range kal {
+		jumlah[e.Status]++
+	}
+	return &ListResult{Items: items, Kalibrasi: HitungKalibrasi(kal), JumlahStatus: jumlah}, nil
 }
 
 func (s *Service) Detail(ctx context.Context, p *auth.Principal, id string) (*EntryDTO, error) {

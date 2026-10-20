@@ -44,6 +44,8 @@ export interface Kalibrasi {
 export interface DaftarLedger {
   items: Ledger[];
   kalibrasi: Kalibrasi;
+  /** Jumlah entri per status (tanpa filter); kunci "SEMUA" = seluruh entri. */
+  jumlahStatus: Record<string, number>;
 }
 
 // Body POST /api/ledger/:id/transisi

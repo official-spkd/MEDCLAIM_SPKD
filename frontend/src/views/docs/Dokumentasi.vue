@@ -48,8 +48,14 @@ const faq = [
   {
     id: "rbac",
     tanya: "Siapa boleh melihat apa?",
-    jawab:
-      "Super Admin: semua RS + administrasi. Casemix: upload, ledger (tulis), query. Coder: analitik + query + ledger (baca-saja). Direktur: analitik + ledger (baca-saja). DPJP: hanya episode pasiennya sendiri, TANPA kolom finansial, dengan inbox query. Penyembunyian finansial diterapkan di server (bukan hanya UI).",
+    jawab: "Hak akses tiap peran (penyembunyian finansial diterapkan di server, bukan hanya UI):",
+    daftar: [
+      { peran: "Super Admin", akses: "Semua RS + administrasi." },
+      { peran: "Casemix", akses: "Upload, ledger (tulis), query." },
+      { peran: "Coder", akses: "Analitik + query + ledger (baca-saja)." },
+      { peran: "Direktur", akses: "Analitik + ledger (baca-saja)." },
+      { peran: "DPJP", akses: "Hanya episode pasiennya sendiri, TANPA kolom finansial, dengan inbox query." },
+    ] as { peran: string; akses: string }[],
   },
   {
     id: "arsitektur",
@@ -92,6 +98,12 @@ const faq = [
       </div>
       <div v-if="buka === f.id" style="padding: 0 18px 16px; color: var(--text-2); font-size: 13.5px; border-top: 1px solid var(--border); padding-top: 12px">
         {{ f.jawab }}
+        <div v-if="f.daftar" style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px">
+          <div v-for="d in f.daftar" :key="d.peran" style="background: var(--bg); border-radius: 8px; padding: 10px 14px">
+            <b style="color: var(--text)">{{ d.peran }}</b>
+            <div style="margin-top: 2px">{{ d.akses }}</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

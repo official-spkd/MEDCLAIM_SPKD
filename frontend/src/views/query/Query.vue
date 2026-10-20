@@ -94,18 +94,23 @@ async function kirimJawaban() {
   <PageHeader judul="Query & Klarifikasi" :demo="modeDemo" sub="Klarifikasi coding ke DPJP dengan template dan SLA — jawaban terkunci setelah dikirim." />
   <div v-if="galat" class="bahaya-kecil" style="margin-bottom: 12px">{{ galat }}</div>
 
-  <div class="filter-bar">
-    <div class="kolom-form" style="max-width: 200px">
-      <label>Status</label>
-      <select v-model="status">
-        <option value="SEMUA">Semua status ({{ angka(jumlahStatus.SEMUA ?? 0) }})</option>
-        <option v-for="(_, k) in LABEL_STATUS_QUERY" :key="k" :value="k">{{ labelStatus(k) }} ({{ angka(jumlahStatus[k] ?? 0) }})</option>
-      </select>
+  <div class="filter-bar rapat">
+    <div class="chip-grup">
+      <button type="button" class="chip-status" :class="{ aktif: status === 'SEMUA' }" @click="status = 'SEMUA'">
+        Semua <span class="jml">{{ angka(jumlahStatus.SEMUA ?? 0) }}</span>
+      </button>
+      <button
+        v-for="(_, k) in LABEL_STATUS_QUERY"
+        :key="k"
+        type="button"
+        class="chip-status"
+        :class="{ aktif: status === k }"
+        @click="status = k"
+      >
+        {{ labelStatus(k) }} <span class="jml">{{ angka(jumlahStatus[k] ?? 0) }}</span>
+      </button>
     </div>
     <div style="flex: 1" />
-    <span style="font-size: 12.5px; color: var(--text-2); align-self: center">
-      Menampilkan <b>{{ angka(items.length) }}</b> dari <b>{{ angka(jumlahStatus.SEMUA ?? 0) }}</b> query
-    </span>
     <button v-if="bisaAkses.query" class="btn navy" @click="bukaBuat = true">+ Query Baru</button>
   </div>
 

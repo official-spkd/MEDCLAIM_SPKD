@@ -226,21 +226,26 @@ const pesanOk = ref("");
   </div>
 
   <div class="filter-bar">
+    <div class="chip-grup" style="flex-basis: 100%">
+      <button type="button" class="chip-status" :class="{ aktif: status === 'SEMUA' }" @click="status = 'SEMUA'">
+        Semua <span class="jml">{{ angka(jumlahStatus.SEMUA ?? 0) }}</span>
+      </button>
+      <button
+        v-for="(l, k) in LABEL_STATUS_LEDGER"
+        :key="k"
+        type="button"
+        class="chip-status"
+        :class="{ aktif: status === k }"
+        @click="status = k"
+      >
+        {{ l }} <span class="jml">{{ angka(jumlahStatus[k] ?? 0) }}</span>
+      </button>
+    </div>
     <div class="kolom-form cari">
       <label>Cari SEP / MR / nama</label>
       <input v-model="cari" placeholder="mis. 030390…" />
     </div>
-    <div class="kolom-form" style="max-width: 200px">
-      <label>Status</label>
-      <select v-model="status">
-        <option value="SEMUA">Semua status ({{ angka(jumlahStatus.SEMUA ?? 0) }})</option>
-        <option v-for="(l, k) in LABEL_STATUS_LEDGER" :key="k" :value="k">{{ l }} ({{ angka(jumlahStatus[k] ?? 0) }})</option>
-      </select>
-    </div>
     <div style="flex: 1" />
-    <span style="font-size: 12.5px; color: var(--text-2); align-self: center">
-      Menampilkan <b>{{ angka(items.length) }}</b> dari <b>{{ angka(jumlahStatus.SEMUA ?? 0) }}</b> entri
-    </span>
     <button v-if="bisaAkses.ledgerTulis" class="btn garis" @click="mulaiMassal">Ajukan Massal</button>
     <button v-if="bisaAkses.ledgerTulis" class="btn navy" @click="bukaBuat = true">+ Kandidat Manual</button>
   </div>

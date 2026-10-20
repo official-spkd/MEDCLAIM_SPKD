@@ -617,6 +617,22 @@ table.tabel { width: 100%; border-collapse: collapse; font-size: 13px; }
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 13px 15px; margin-bottom: 16px; box-shadow: var(--shadow);
 }
+.filter-bar.rapat { align-items: center; }
+
+/* Chip filter status dengan jumlah */
+.chip-grup { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-status {
+  display: inline-flex; align-items: center; gap: 7px; padding: 6px 13px; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-2);
+  font: 600 12.5px var(--font-teks); cursor: pointer; transition: all 0.15s ease;
+}
+.chip-status:hover { border-color: var(--brand); color: var(--text); }
+.chip-status.aktif { background: var(--brand-light); border-color: var(--brand); color: var(--brand-gelap); }
+.chip-status .jml {
+  min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--bg); color: var(--text-2);
+  font-size: 11.5px; text-align: center;
+}
+.chip-status.aktif .jml { background: var(--brand); color: #fff; }
 .filter-bar .kolom-form { min-width: 130px; flex: 1; max-width: 220px; }
 .filter-bar .kolom-form.cari { min-width: 200px; max-width: 330px; }
 

@@ -180,6 +180,87 @@ func (s *Service) Toggle(ctx context.Context, p *auth.Principal, id string) (*us
 	return &u, nil
 }
 
+// BodyUbahUser: field nil/kosong = tidak diubah.
+type BodyUbahUser struct {
+	Email    *string `json:"email"`
+	Nama     *string `json:"nama"`
+	Password *string `json:"password"`
+}
+
+// UbahUser mengubah nama/email/password akun. Perubahan password mengakhiri sesi aktif akun tersebut.
+func (s *Service) UbahUser(ctx context.Context, p *auth.Principal, id string, b BodyUbahUser) (*users.User, error) {
+	if !types.IsUUID(id) {
+		return nil, response.NotFound("Pengguna tidak ditemukan.")
+	}
+	upd := map[string]any{}
+	var email string
+	if b.Email != nil {
+		email = strings.ToLower(strings.TrimSpace(*b.Email))
+		if email == "" || !strings.Contains(email, "@") {
+			return nil, response.Unprocessable("Format email tidak valid.")
+		}
+		upd["email"] = email
+	}
+	if b.Nama != nil {
+		nama := strings.TrimSpace(*b.Nama)
+		if nama == "" {
+			return nil, response.Unprocessable("Nama tidak boleh kosong.")
+		}
+		upd["nama"] = nama
+	}
+	gantiSandi := b.Password != nil && *b.Password != ""
+	if gantiSandi {
+		if len(*b.Password) < 8 {
+			return nil, response.Unprocessable("Password minimal 8 karakter.")
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(*b.Password), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, err
+		}
+		upd["password_hash"] = string(hash)
+	}
+	if len(upd) == 0 {
+		return nil, response.Unprocessable("Tidak ada perubahan yang dikirim.")
+	}
+
+	var u users.User
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.First(&u, "id = ?", id).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return response.NotFound("Pengguna tidak ditemukan.")
+			}
+			return err
+		}
+		if email != "" {
+			var n int64
+			if err := tx.Model(&users.User{}).Where("lower(email) = ? AND id <> ?", email, id).Count(&n).Error; err != nil {
+				return err
+			}
+			if n > 0 {
+				return response.Conflict("Email sudah terdaftar.")
+			}
+		}
+		if err := tx.Model(&users.User{}).Where("id = ?", id).Updates(upd).Error; err != nil {
+			return err
+		}
+		if gantiSandi && id != p.ID { // sesi lama akun lain tidak lagi berlaku
+			if err := tx.Exec("DELETE FROM sessions WHERE user_id = ?", id).Error; err != nil {
+				return err
+			}
+		}
+		ket := "profil"
+		if gantiSandi {
+			ket = "profil+password"
+		}
+		s.audit.Catat(tx, p.Email, "USER_UPDATE", "USER", &id, &ket)
+		return tx.First(&u, "id = ?", id).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
 type Handler struct {
 	svc   *Service
 	audit *audit.Service
@@ -215,6 +296,21 @@ func (h *Handler) BuatUser(c *gin.Context) {
 // Toggle: POST /api/admin/users/:id/toggle
 func (h *Handler) Toggle(c *gin.Context) {
 	out, err := h.svc.Toggle(c.Request.Context(), auth.Must(c), c.Param("id"))
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, out)
+}
+
+// Ubah: POST /api/admin/users/:id/update
+func (h *Handler) Ubah(c *gin.Context) {
+	var body BodyUbahUser
+	if err := response.Bind(c, &body); err != nil {
+		response.Fail(c, err)
+		return
+	}
+	out, err := h.svc.UbahUser(c.Request.Context(), auth.Must(c), c.Param("id"), body)
 	if err != nil {
 		response.Fail(c, err)
 		return

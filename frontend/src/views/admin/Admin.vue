@@ -4,7 +4,7 @@ import { adminApi, modeDemo } from "@/api";
 import { store } from "@/stores/session";
 import { tanggalWaktu, tanggal } from "@/utils/format";
 import { LABEL_PERAN } from "@/constants/labels";
-import type { UserPub, Audit } from "@/types";
+import type { UserPub, Audit, UbahUserBody } from "@/types";
 import PageHeader from "@/components/layout/PageHeader.vue";
 
 const tab = ref("pengguna");
@@ -53,6 +53,36 @@ async function toggle(u: UserPub) {
     await muat();
   } catch (e: any) {
     galat.value = e?.message ?? "Gagal mengubah status pengguna.";
+  }
+}
+
+// Edit akun (nama / email / password)
+const edit = ref<UserPub | null>(null);
+const formEdit = ref({ nama: "", email: "", password: "" });
+const galatEdit = ref("");
+function bukaEdit(u: UserPub) {
+  edit.value = u;
+  formEdit.value = { nama: u.nama, email: u.email, password: "" };
+  galatEdit.value = "";
+}
+async function simpanEdit() {
+  if (!edit.value) return;
+  galatEdit.value = "";
+  const f = formEdit.value;
+  const body: UbahUserBody = {};
+  if (f.nama.trim() !== edit.value.nama) body.nama = f.nama.trim();
+  if (f.email.trim() !== edit.value.email) body.email = f.email.trim();
+  if (f.password) body.password = f.password;
+  if (Object.keys(body).length === 0) {
+    edit.value = null;
+    return;
+  }
+  try {
+    await adminApi.updateUser(edit.value.id, body);
+    edit.value = null;
+    await muat();
+  } catch (e: any) {
+    galatEdit.value = e?.message ?? "Gagal menyimpan perubahan akun.";
   }
 }
 
@@ -117,7 +147,7 @@ async function buat() {
     <div class="tabel-wadah">
       <table class="tabel">
         <thead>
-          <tr><th>Nama</th><th>Email</th><th>Peran</th><th>RS</th><th>DPJP</th><th>Status</th><th>Login Terakhir</th><th></th></tr>
+          <tr><th>Nama</th><th>Email</th><th>Peran</th><th>RS</th><th>DPJP</th><th>Status</th><th>Login Terakhir</th><th>Tindakan</th></tr>
         </thead>
         <tbody>
           <tr v-for="u in usersTampil" :key="u.id">
@@ -128,7 +158,8 @@ async function buat() {
             <td class="tunggal">{{ u.dpjpKode ?? "—" }}</td>
             <td><span class="badge" :class="u.aktif ? 'hijau' : 'abu'">{{ u.aktif ? "Aktif" : "Nonaktif" }}</span></td>
             <td style="font-size: 12px; color: var(--text-3)">{{ u.lastLoginAt ? tanggalWaktu(u.lastLoginAt) : "—" }}</td>
-            <td>
+            <td style="white-space: nowrap">
+              <button class="btn garis kecil" style="margin-right: 6px" @click="bukaEdit(u)">Edit</button>
               <button
                 class="btn kecil"
                 :class="u.aktif ? 'bahaya' : 'utama'"
@@ -189,6 +220,26 @@ async function buat() {
       </div>
     </div>
   </template>
+
+  <!-- Modal edit user -->
+  <div v-if="edit" class="modal-topeng" @click.self="edit = null">
+    <div class="modal" style="max-width: 480px">
+      <div class="kepala"><h3>Edit Akun — {{ edit.nama }}</h3><button class="btn garis kecil" @click="edit = null">✕</button></div>
+      <div class="badan">
+        <div class="kolom-form" style="margin-bottom: 12px"><label>Nama</label><input v-model="formEdit.nama" /></div>
+        <div class="kolom-form" style="margin-bottom: 12px"><label>Email</label><input v-model="formEdit.email" type="email" /></div>
+        <div class="kolom-form">
+          <label>Password baru (kosongkan bila tidak diubah)</label>
+          <input v-model="formEdit.password" type="password" autocomplete="new-password" placeholder="minimal 8 karakter" />
+        </div>
+        <div v-if="galatEdit" class="bahaya-kecil" style="margin-top: 10px">{{ galatEdit }}</div>
+      </div>
+      <div class="kaki">
+        <button class="btn garis" @click="edit = null">Batal</button>
+        <button class="btn utama" :disabled="!formEdit.nama.trim() || !formEdit.email.trim() || (formEdit.password !== '' && formEdit.password.length < 8)" @click="simpanEdit">Simpan</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Modal buat user -->
   <div v-if="bukaBuat" class="modal-topeng" @click.self="bukaBuat = false">

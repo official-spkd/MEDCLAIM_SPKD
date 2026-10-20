@@ -102,6 +102,7 @@ func New(cfg *config.Config, db *gorm.DB) (*gin.Engine, error) {
 	ad.GET("/users", adminH.Users)
 	ad.POST("/users", adminH.BuatUser)
 	ad.POST("/users/:id/toggle", adminH.Toggle)
+	ad.POST("/users/:id/update", adminH.Ubah)
 	ad.GET("/audit", adminH.Audit)
 
 	return r, nil

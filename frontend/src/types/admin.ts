@@ -40,3 +40,10 @@ export interface BuatUserBody {
 export interface UserDibuat extends UserPub {
   passwordSementara?: string;
 }
+
+// Body POST /api/admin/users/:id/update — hanya field yang diisi yang diubah.
+export interface UbahUserBody {
+  nama?: string;
+  email?: string;
+  password?: string;
+}

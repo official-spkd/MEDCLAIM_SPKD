@@ -353,11 +353,19 @@ type KalibrasiLedger struct {
 	NSampel           int     `json:"nSampel"`
 	KalibrasiTersedia bool    `json:"kalibrasiTersedia"`
 	RealisasiNegatif  int     `json:"realisasiNegatif"`
+	EstimasiAktif     int64   `json:"estimasiAktif"`
+	NAktif            int     `json:"nAktif"`
 }
 
 func kalibrasiLedger(entri []*LedgerEntry) KalibrasiLedger {
 	denganRealisasi := []*LedgerEntry{}
+	var estAktif int64
+	nAktif := 0
 	for _, e := range entri {
+		if e.Status != "HASIL" && e.Status != "TIDAK_BERUBAH" {
+			estAktif += e.Estimasi
+			nAktif++
+		}
 		if e.Realisasi != nil && (e.Status == "HASIL" || e.Status == "TIDAK_BERUBAH") {
 			denganRealisasi = append(denganRealisasi, e)
 		}
@@ -392,6 +400,7 @@ func kalibrasiLedger(entri []*LedgerEntry) KalibrasiLedger {
 		TotalEstimasi: totalEst, TotalRealisasi: totalReal,
 		RealizationRate: realRate, HitRate: hitRate, NSampel: penyebut,
 		KalibrasiTersedia: penyebut >= 30, RealisasiNegatif: neg,
+		EstimasiAktif: estAktif, NAktif: nAktif,
 	}
 }
 

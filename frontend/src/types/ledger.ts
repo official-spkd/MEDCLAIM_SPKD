@@ -37,6 +37,8 @@ export interface Kalibrasi {
   nSampel: number;
   kalibrasiTersedia: boolean;
   realisasiNegatif: number;
+  estimasiAktif: number;
+  nAktif: number;
 }
 
 export interface DaftarLedger {

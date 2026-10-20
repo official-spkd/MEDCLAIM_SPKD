@@ -9,6 +9,9 @@ type Kalibrasi struct {
 	NSampel           int     `json:"nSampel"`
 	KalibrasiTersedia bool    `json:"kalibrasiTersedia"`
 	RealisasiNegatif  int     `json:"realisasiNegatif"`
+	// EstimasiAktif = total estimasi entri yang belum selesai (pipeline recovery berjalan).
+	EstimasiAktif int64 `json:"estimasiAktif"`
+	NAktif        int   `json:"nAktif"`
 }
 
 // Kalibrasi baru dianggap bermakna setelah minimal 30 sampel.
@@ -16,7 +19,13 @@ const minSampelKalibrasi = 30
 
 func HitungKalibrasi(entri []Entry) Kalibrasi {
 	var selesai, berubah []Entry
+	var estAktif int64
+	nAktif := 0
 	for _, e := range entri {
+		if e.Status != "HASIL" && e.Status != "TIDAK_BERUBAH" {
+			estAktif += e.Estimasi
+			nAktif++
+		}
 		if e.Realisasi != nil && (e.Status == "HASIL" || e.Status == "TIDAK_BERUBAH") {
 			selesai = append(selesai, e)
 			if e.Status == "HASIL" {
@@ -38,6 +47,7 @@ func HitungKalibrasi(entri []Entry) Kalibrasi {
 	k := Kalibrasi{
 		TotalEstimasi: totalEst, TotalRealisasi: totalReal, NSampel: len(selesai),
 		KalibrasiTersedia: len(selesai) >= minSampelKalibrasi, RealisasiNegatif: neg,
+		EstimasiAktif: estAktif, NAktif: nAktif,
 	}
 	if totalEst > 0 {
 		k.RealizationRate = float64(totalReal) / float64(totalEst)

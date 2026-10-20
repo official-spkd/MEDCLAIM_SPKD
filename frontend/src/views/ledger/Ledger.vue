@@ -115,8 +115,8 @@ const pesanOk = ref("");
 
   <!-- Kalibrasi -->
   <div class="grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 14px" v-if="kalibrasi">
-    <div class="kartu kpi-kartu"><span class="label">TOTAL ESTIMASI (HASIL)</span><span class="nilai">{{ rupiahSingkat(kalibrasi.totalEstimasi) }}</span></div>
-    <div class="kartu kpi-kartu"><span class="label">TOTAL REALISASI</span><span class="nilai" style="color: var(--hijau)">{{ rupiahSingkat(kalibrasi.totalRealisasi) }}</span></div>
+    <div class="kartu kpi-kartu"><span class="label">TOTAL ESTIMASI</span><span class="nilai">{{ rupiahSingkat(kalibrasi.estimasiAktif + kalibrasi.totalEstimasi) }}</span><span class="catatan">{{ angka(kalibrasi.nAktif) }} entri berjalan · {{ rupiahSingkat(kalibrasi.totalEstimasi) }} sudah berhasil</span></div>
+    <div class="kartu kpi-kartu"><span class="label">TOTAL REALISASI</span><span class="nilai" style="color: var(--hijau)">{{ rupiahSingkat(kalibrasi.totalRealisasi) }}</span><span class="catatan" v-if="kalibrasi.nSampel === 0">belum ada entri berstatus hasil</span></div>
     <div class="kartu kpi-kartu"><span class="label">REALIZATION RATE</span><span class="nilai">{{ persen(kalibrasi.realizationRate) }}</span><span class="catatan">hit rate {{ persen(kalibrasi.hitRate) }} · n={{ kalibrasi.nSampel }}</span></div>
     <div class="kartu kpi-kartu">
       <span class="label">KALIBRASI</span>

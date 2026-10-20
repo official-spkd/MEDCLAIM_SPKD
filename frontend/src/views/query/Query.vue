@@ -12,6 +12,12 @@ const status = ref("SEMUA");
 const memuat = ref(true);
 const galat = ref("");
 
+// Dari sudut pandang DPJP, query yang terkirim berarti menunggu jawabannya.
+function labelStatus(k: string): string {
+  if (store.sesi?.role === "DPJP" && k === "TERKIRIM") return "Perlu Dijawab";
+  return LABEL_STATUS_QUERY[k] ?? k;
+}
+
 const badgeStatus: Record<string, string> = {
   DRAFT: "abu", TERKIRIM: "teal", DIJAWAB: "hijau", TERLAMBAT: "merah",
 };
@@ -93,7 +99,7 @@ async function kirimJawaban() {
       <label>Status</label>
       <select v-model="status">
         <option value="SEMUA">Semua status ({{ angka(jumlahStatus.SEMUA ?? 0) }})</option>
-        <option v-for="(l, k) in LABEL_STATUS_QUERY" :key="k" :value="k">{{ l }} ({{ angka(jumlahStatus[k] ?? 0) }})</option>
+        <option v-for="(_, k) in LABEL_STATUS_QUERY" :key="k" :value="k">{{ labelStatus(k) }} ({{ angka(jumlahStatus[k] ?? 0) }})</option>
       </select>
     </div>
     <div style="flex: 1" />
@@ -122,7 +128,7 @@ async function kirimJawaban() {
             <span v-if="q.templateNama" class="badge navy" style="margin-bottom: 3px">{{ q.templateNama }}</span>
             <div style="font-size: 12px; color: var(--text-2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden">{{ q.pertanyaan }}</div>
           </td>
-          <td><span class="badge" :class="badgeStatus[q.status]">{{ LABEL_STATUS_QUERY[q.status] ?? q.status }}</span></td>
+          <td><span class="badge" :class="badgeStatus[q.status]">{{ labelStatus(q.status) }}</span></td>
           <td style="font-size: 12px">{{ tanggal(q.deadline) }}</td>
           <td><button class="btn garis kecil" @click="buka(q)">Buka</button></td>
         </tr>
@@ -182,7 +188,7 @@ async function kirimJawaban() {
       </div>
       <div class="badan">
         <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px">
-          <span class="badge" :class="badgeStatus[terpilih.status]">{{ LABEL_STATUS_QUERY[terpilih.status] }}</span>
+          <span class="badge" :class="badgeStatus[terpilih.status]">{{ labelStatus(terpilih.status) }}</span>
           <span class="badge abu">SLA {{ terpilih.slaHari }} hari</span>
           <span class="badge navy">DPJP: {{ terpilih.dpjpNama }}</span>
           <span v-if="terpilih.templateNama" class="badge teal">{{ terpilih.templateNama }}</span>

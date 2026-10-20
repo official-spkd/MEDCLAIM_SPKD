@@ -95,6 +95,11 @@ async function cariSep() {
   const d = await episodesApi.list({ q });
   cariEpisode.value = d.items.filter((e) => e.kelasRugi !== "SURPLUS").slice(0, 8);
   episodeDitemukan.value = d.items.find((e) => e.noSep === q) ?? null;
+  // Episode surplus bukan kandidat recovery.
+  if (episodeDitemukan.value?.kelasRugi === "SURPLUS") {
+    pesanBuat.value = "Entri tidak bisa ditambahkan sebagai kandidat recovery karena merupakan episode surplus.";
+    return;
+  }
   // SEP yang persis cocok dan sudah ada di ledger tidak bisa ditambahkan lagi.
   const l = await ledgerApi.list({ q });
   if (l.items.some((x) => x.sep === q)) {

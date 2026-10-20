@@ -88,6 +88,9 @@ interface Prioritas {
   badge: string;
   ke: string;
 }
+// DPJP hanya melihat episode pasiennya: grafik agregat tidak relevan baginya.
+const adalahDpjp = computed(() => store.sesi?.role === "DPJP");
+
 const prioritas = computed<Prioritas[]>(() => {
   const k = data.value?.kpi;
   if (!k) return [];
@@ -283,8 +286,8 @@ const totalKelas = computed(() =>
     </div>
 
     <!-- ====== Tren + Tindakan Prioritas ====== -->
-    <div class="grid dua-lebar" style="margin-bottom: 16px">
-      <div class="kartu">
+    <div class="grid dua-lebar" :style="adalahDpjp ? 'margin-bottom: 16px; grid-template-columns: 1fr' : 'margin-bottom: 16px'">
+      <div v-if="!adalahDpjp" class="kartu">
         <div class="kepala-kartu">
           <h3>Tren Episode &amp; Rugi per Periode</h3>
         </div>
@@ -333,7 +336,7 @@ const totalKelas = computed(() =>
     </div>
 
     <!-- ====== Distribusi + Kelas Rawat ====== -->
-    <div class="grid dua" style="margin-bottom: 16px">
+    <div v-if="!adalahDpjp" class="grid dua" style="margin-bottom: 16px">
       <div class="kartu" v-if="bisaAkses.finansial">
         <div class="kepala-kartu">
           <h3>Distribusi Kelas Kerugian</h3>
@@ -362,7 +365,7 @@ const totalKelas = computed(() =>
     </div>
 
     <!-- ====== Top CBG ====== -->
-    <div class="kartu">
+    <div v-if="!adalahDpjp" class="kartu">
       <div class="kepala-kartu">
         <h3>Grup INA-CBG Terbesar</h3>
         <button class="tautan-kartu" type="button" @click="router.push('/klaim')">

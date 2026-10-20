@@ -108,6 +108,7 @@ export interface Akses {
   upload: boolean;
   ledger: boolean;
   ledgerTulis: boolean;
+  ledgerTransisi: boolean;
   query: boolean;
   admin: boolean;
   finansial: boolean;
@@ -120,6 +121,7 @@ export const bisaAkses = computed<Akses>(() => {
     upload: peran === "SUPERADMIN" || peran === "CASEMIX",
     ledger: ["SUPERADMIN", "CASEMIX", "CODER", "DIREKTUR"].includes(peran ?? ""),
     ledgerTulis: peran === "SUPERADMIN" || peran === "CASEMIX",
+    ledgerTransisi: ["SUPERADMIN", "CASEMIX", "CODER"].includes(peran ?? ""),
     query: ["SUPERADMIN", "CASEMIX", "CODER"].includes(peran ?? ""),
     admin: peran === "SUPERADMIN",
     finansial: peran !== "DPJP",

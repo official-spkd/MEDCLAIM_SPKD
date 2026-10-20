@@ -91,7 +91,8 @@ func New(cfg *config.Config, db *gorm.DB) (*gin.Engine, error) {
 	lg.GET("/:id", ledgerH.Detail)
 	lgW := lg.Group("", middleware.RequireMutate(auth.GrupLedger, "Peran Anda hanya dapat melihat ledger (baca-saja)."))
 	lgW.POST("", ledgerH.Buat)
-	lgW.POST("/:id/transisi", ledgerH.Transisi)
+	// Coder boleh mengubah status (Kandidat → Diperiksa → Dikoreksi); aturan per transisi ada di ledger.CekTransisi.
+	lg.POST("/:id/transisi", middleware.RequireRole("Peran Anda hanya dapat melihat ledger (baca-saja).", "SUPERADMIN", "CASEMIX", "CODER"), ledgerH.Transisi)
 
 	a.GET("/queries", middleware.RequireRole("Peran Anda tidak memiliki akses modul query.", "SUPERADMIN", "CASEMIX", "CODER", "DPJP"), queriesH.List)
 	a.POST("/queries", middleware.RequireMutate(auth.GrupQuery, "Peran Anda tidak dapat membuat query."), queriesH.Buat)

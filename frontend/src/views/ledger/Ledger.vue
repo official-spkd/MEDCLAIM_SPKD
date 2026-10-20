@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from "vue";
-import { ledgerApi, episodesApi, ApiError, modeDemo } from "@/api";
+import { ledgerApi, episodesApi, queriesApi, ApiError, modeDemo } from "@/api";
 import { store, bisaAkses } from "@/stores/session";
 import { rupiah, rupiahSingkat, tanggalWaktu, angka, persen } from "@/utils/format";
 import { LABEL_KELAS_RUGI, LABEL_STATUS_LEDGER } from "@/constants/labels";
@@ -52,6 +52,7 @@ async function buka(l: Ledger) {
   terpilih.value = null;
   galatTransisi.value = "";
   form.value = { ke: "", alasan: "", referensiRm: "", realisasi: "" };
+  tutupQuery();
   try {
     terpilih.value = await ledgerApi.detail(l.id);
   } finally {
@@ -68,6 +69,13 @@ const transisiSah: Record<string, string[]> = {
   TIDAK_BERUBAH: ["DIPERIKSA"],
 };
 
+// Coder hanya boleh memeriksa/mengoreksi; pengajuan, hasil, dan "tidak berubah" tetap Casemix/Super Admin.
+const transisiCoder = ["DIPERIKSA", "DIKOREKSI", "KANDIDAT"];
+function opsiTransisi(status: string): string[] {
+  const semua = transisiSah[status] ?? [];
+  return store.sesi?.role === "CODER" ? semua.filter((k) => transisiCoder.includes(k)) : semua;
+}
+
 const perluReferensi = () => form.value.ke === "DIKOREKSI";
 const perluAlasan = () => form.value.ke === "TIDAK_BERUBAH" || (form.value.ke === "DIPERIKSA" && (terpilih.value?.status === "HASIL" || terpilih.value?.status === "TIDAK_BERUBAH"));
 const perluRealisasi = () => form.value.ke === "HASIL";
@@ -83,6 +91,52 @@ async function transisi() {
     await muat();
   } catch (e: any) {
     galatTransisi.value = e?.message ?? "Transisi ditolak.";
+  }
+}
+
+// ---------- Ajukan query ke DPJP langsung dari detail ledger ----------
+const bukaQuery = ref(false);
+const formQuery = ref({ dpjpId: "", templateId: "", pertanyaan: "", konteks: "" });
+const galatQuery = ref("");
+const pesanQuery = ref("");
+const memprosesQuery = ref(false);
+
+function tutupQuery() {
+  bukaQuery.value = false;
+  formQuery.value = { dpjpId: "", templateId: "", pertanyaan: "", konteks: "" };
+  galatQuery.value = "";
+  pesanQuery.value = "";
+}
+async function mulaiQuery() {
+  if (!terpilih.value) return;
+  bukaQuery.value = true;
+  pesanQuery.value = "";
+  try {
+    // Pilih otomatis DPJP yang tercatat pada episode ini.
+    const ep = (await episodesApi.detail(terpilih.value.episodeId)).episode;
+    const d = store.dokter.find((x) => x.dpjpKode && x.dpjpKode === ep.dpjpKode);
+    if (d) formQuery.value.dpjpId = d.id;
+  } catch {
+    /* DPJP bisa dipilih manual */
+  }
+}
+function pakaiTemplateQuery() {
+  const t = store.templates.find((x) => x.id === formQuery.value.templateId);
+  if (t) formQuery.value.pertanyaan = t.isi;
+}
+async function kirimQuery() {
+  if (!terpilih.value) return;
+  galatQuery.value = "";
+  memprosesQuery.value = true;
+  try {
+    await queriesApi.create({ sep: terpilih.value.sep, ...formQuery.value });
+    const sep = terpilih.value.sep;
+    tutupQuery();
+    pesanQuery.value = "Query untuk SEP " + sep + " terkirim ke DPJP.";
+  } catch (e: any) {
+    galatQuery.value = e?.message ?? "Gagal mengirim query.";
+  } finally {
+    memprosesQuery.value = false;
   }
 }
 
@@ -229,14 +283,14 @@ const pesanOk = ref("");
               <div v-if="(terpilih.events ?? []).length === 0" class="kosong">Belum ada peristiwa.</div>
             </div>
           </div>
-          <div v-if="bisaAkses.ledgerTulis">
+          <div v-if="bisaAkses.ledgerTransisi">
             <b style="font-size: 13px">Transisi status</b>
             <div class="kartu" style="box-shadow: none; background: var(--bg); margin-top: 10px">
               <div class="kolom-form" style="margin-bottom: 10px">
                 <label>Transisi ke</label>
                 <select v-model="form.ke">
                   <option value="" disabled>Pilih status tujuan…</option>
-                  <option v-for="ke in transisiSah[terpilih.status] ?? []" :key="ke" :value="ke">{{ LABEL_STATUS_LEDGER[ke] }}</option>
+                  <option v-for="ke in opsiTransisi(terpilih.status)" :key="ke" :value="ke">{{ LABEL_STATUS_LEDGER[ke] }}</option>
                 </select>
               </div>
               <div v-if="perluReferensi()" class="kolom-form" style="margin-bottom: 10px">
@@ -258,6 +312,40 @@ const pesanOk = ref("");
               </p>
             </div>
             <div v-if="terpilih.strategy" class="info-kecil" style="margin-top: 10px">Strategi: {{ terpilih.strategy }}</div>
+
+            <!-- Query ke DPJP tanpa keluar dari halaman detail -->
+            <div v-if="terpilih.status === 'DIPERIKSA' && bisaAkses.query" style="margin-top: 14px">
+              <div v-if="pesanQuery" class="info-kecil" style="margin-bottom: 10px">{{ pesanQuery }}</div>
+              <button v-if="!bukaQuery" class="btn navy" style="width: 100%" @click="mulaiQuery">Ajukan Query ke DPJP</button>
+              <div v-else class="kartu" style="box-shadow: none; background: var(--bg)">
+                <b style="font-size: 13px">Query untuk SEP {{ terpilih.sep }}</b>
+                <div class="kolom-form" style="margin: 10px 0">
+                  <label>DPJP</label>
+                  <select v-model="formQuery.dpjpId">
+                    <option value="" disabled>Pilih DPJP…</option>
+                    <option v-for="d in store.dokter" :key="d.id" :value="d.id">{{ d.nama }} ({{ d.dpjpKode }})</option>
+                  </select>
+                </div>
+                <div class="kolom-form" style="margin-bottom: 10px">
+                  <label>Template pertanyaan</label>
+                  <select v-model="formQuery.templateId" @change="pakaiTemplateQuery">
+                    <option value="">— Tanpa template —</option>
+                    <option v-for="t in store.templates" :key="t.id" :value="t.id">{{ t.nama }}</option>
+                  </select>
+                </div>
+                <div class="kolom-form" style="margin-bottom: 10px">
+                  <label>Pertanyaan</label>
+                  <textarea v-model="formQuery.pertanyaan" placeholder="Tulis pertanyaan klarifikasi…" />
+                </div>
+                <div v-if="galatQuery" class="bahaya-kecil" style="margin-bottom: 10px">{{ galatQuery }}</div>
+                <div style="display: flex; gap: 8px">
+                  <button class="btn garis" @click="tutupQuery">Batal</button>
+                  <button class="btn utama" style="flex: 1" :disabled="memprosesQuery || !formQuery.dpjpId || !formQuery.pertanyaan" @click="kirimQuery">
+                    {{ memprosesQuery ? "Mengirim…" : "Kirim ke DPJP" }}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

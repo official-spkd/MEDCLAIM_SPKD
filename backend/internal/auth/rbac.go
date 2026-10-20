@@ -26,7 +26,8 @@ var matriks = map[string][]string{
 
 func BolehAkses(grup, peran string) bool { return slices.Contains(matriks[grup], peran) }
 
-// BolehMutasi: akses tulis. LEDGER hanya Casemix/Superadmin (Coder dan Direktur baca-saja).
+// BolehMutasi: akses tulis. LEDGER (membuat kandidat manual) hanya Casemix/Superadmin; Direktur baca-saja.
+// Coder hanya boleh transisi status tertentu (lihat ledger.CekTransisi), bukan membuat kandidat.
 func BolehMutasi(grup, peran string) bool {
 	if !BolehAkses(grup, peran) {
 		return false

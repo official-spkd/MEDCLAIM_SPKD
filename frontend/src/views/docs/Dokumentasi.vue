@@ -52,7 +52,7 @@ const faq = [
     daftar: [
       { peran: "Super Admin", akses: "Semua RS + administrasi." },
       { peran: "Casemix", akses: "Upload, ledger (tulis), query." },
-      { peran: "Coder", akses: "Analitik + query + ledger (baca-saja)." },
+      { peran: "Coder", akses: "Analitik + query + ledger (ubah status Kandidat → Diperiksa → Dikoreksi; pengajuan dan hasil tetap oleh Casemix/Super Admin)." },
       { peran: "Direktur", akses: "Analitik + ledger (baca-saja)." },
       { peran: "DPJP", akses: "Hanya episode pasiennya sendiri, TANPA kolom finansial, dengan inbox query." },
     ] as { peran: string; akses: string }[],

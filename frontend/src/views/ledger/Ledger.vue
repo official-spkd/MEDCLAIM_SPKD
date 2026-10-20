@@ -87,23 +87,32 @@ const bukaBuat = ref(false);
 const sepBuat = ref("");
 const episodeDitemukan = ref<Episode | null>(null);
 const cariEpisode = ref<Episode[]>([]);
+const pesanBuat = ref("");
 async function cariSep() {
   const q = sepBuat.value.trim();
   if (!q) return;
+  pesanBuat.value = "";
   const d = await episodesApi.list({ q });
   cariEpisode.value = d.items.filter((e) => e.kelasRugi !== "SURPLUS").slice(0, 8);
   episodeDitemukan.value = d.items.find((e) => e.noSep === q) ?? null;
+  // SEP yang persis cocok dan sudah ada di ledger tidak bisa ditambahkan lagi.
+  const l = await ledgerApi.list({ q });
+  if (l.items.some((x) => x.sep === q)) {
+    cariEpisode.value = cariEpisode.value.filter((e) => e.noSep !== q);
+    pesanBuat.value = "Entri tidak bisa ditambahkan karena SEP " + q + " sudah masuk di Recovery Ledger.";
+  }
 }
 async function buatKandidat(ep: Episode) {
   try {
     await ledgerApi.create(ep.id);
     okPesan("Kandidat dibuat untuk SEP " + ep.noSep);
-    bukaBuat.value = false;
+    tutupBuat();
     await muat();
   } catch (e: any) {
     galat.value = e?.message ?? "Gagal membuat kandidat.";
   }
 }
+function tutupBuat() { bukaBuat.value = false; pesanBuat.value = ""; cariEpisode.value = []; sepBuat.value = ""; }
 function okPesan(p: string) { galat.value = ""; setTimeout(() => (pesanOk.value = ""), 4000); pesanOk.value = p; }
 const pesanOk = ref("");
 </script>
@@ -245,15 +254,16 @@ const pesanOk = ref("");
   </div>
 
   <!-- Modal buat kandidat -->
-  <div v-if="bukaBuat" class="modal-topeng" @click.self="bukaBuat = false">
+  <div v-if="bukaBuat" class="modal-topeng" @click.self="tutupBuat">
     <div class="modal" style="max-width: 620px">
-      <div class="kepala"><h3>Tambah Kandidat Recovery Manual</h3><button class="btn garis kecil" @click="bukaBuat = false">✕</button></div>
+      <div class="kepala"><h3>Tambah Kandidat Recovery Manual</h3><button class="btn garis kecil" @click="tutupBuat">✕</button></div>
       <div class="badan">
         <div class="kolom-form">
           <label>Nomor SEP episode (aktif, rugi)</label>
           <input v-model="sepBuat" @keydown.enter="cariSep" placeholder="mis. 030390000000013" />
         </div>
         <button class="btn garis" style="margin-top: 10px" @click="cariSep">Cari</button>
+        <div v-if="pesanBuat" class="bahaya-kecil" style="margin-top: 12px">{{ pesanBuat }}</div>
         <div v-if="cariEpisode.length" style="margin-top: 12px">
           <div v-for="ep in cariEpisode" :key="ep.id" class="aturan-dq terpicu" style="align-items: center">
             <div style="flex: 1">
@@ -264,7 +274,7 @@ const pesanOk = ref("");
           </div>
         </div>
       </div>
-      <div class="kaki"><button class="btn garis" @click="bukaBuat = false">Tutup</button></div>
+      <div class="kaki"><button class="btn garis" @click="tutupBuat">Tutup</button></div>
     </div>
   </div>
 </template>

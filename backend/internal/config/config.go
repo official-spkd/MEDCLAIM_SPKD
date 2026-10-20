@@ -42,7 +42,7 @@ func Load() (*Config, error) {
 
 	return &Config{
 		Env:         getenv("APP_ENV", "development"),
-		Port:        getenv("PORT", "8080"),
+		Port:        getenv("PORT", "8081"),
 		DatabaseURL: dsn,
 
 		CORSOrigins:    splitList(getenv("CORS_ORIGINS", "http://localhost:3031,http://localhost:5173,https://1lw5n254-3031.asse.devtunnels.ms")),

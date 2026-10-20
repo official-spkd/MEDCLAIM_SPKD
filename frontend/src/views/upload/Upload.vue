@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { uploadsApi, ApiError, modeDemo } from "@/api";
-import { store } from "@/stores/session";
+import { store, bisaAkses, muatBootstrap } from "@/stores/session";
 import { tanggalWaktu, angka } from "@/utils/format";
 import type { Upload, UploadPreview as Pratinjau } from "@/types";
 import PageHeader from "@/components/layout/PageHeader.vue";
@@ -108,6 +108,18 @@ function ulang() {
 async function arsip(u: Upload) {
   await uploadsApi.arsip(u.id);
   await muatUploads();
+}
+
+async function hapus(u: Upload) {
+  if (!window.confirm(`Hapus file "${u.namaFile}" (${u.periode})? Upload akan hilang dari riwayat.`)) return;
+  galat.value = "";
+  try {
+    await uploadsApi.hapus(u.id);
+    await muatUploads();
+    await muatBootstrap();
+  } catch (e: any) {
+    galat.value = e?.message ?? "Gagal menghapus file.";
+  }
 }
 
 const warnaGrade: Record<string, string> = { A: "hijau", B: "teal", C: "kuning", D: "merah" };
@@ -273,6 +285,7 @@ const labelDimensi: Record<string, string> = {
   <!-- DAFTAR UPLOAD -->
   <div v-if="langkah === 4 || uploads.length" class="kartu" style="margin-top: 16px" :style="langkah === 4 ? '' : 'margin-top: 16px'">
     <h3>Riwayat upload ({{ uploads.length }})</h3>
+    <div v-if="galat && langkah !== 1 && langkah !== 2" class="bahaya-kecil" style="margin-bottom: 10px">{{ galat }}</div>
     <div class="tabel-wadah gulir-y">
       <table class="tabel">
         <thead>
@@ -295,7 +308,10 @@ const labelDimensi: Record<string, string> = {
             <td class="kanan">{{ angka(u.barisUnchanged) }}</td>
             <td><span class="badge" :class="u.status === 'SELESAI' ? 'hijau' : 'abu'">{{ u.status }}</span></td>
             <td style="font-size: 11.5px; color: var(--text-3)">{{ tanggalWaktu(u.createdAt) }}</td>
-            <td><button v-if="u.status === 'SELESAI'" class="btn garis kecil" @click="arsip(u)">Arsipkan</button></td>
+            <td style="white-space: nowrap">
+              <button v-if="u.status === 'SELESAI'" class="btn garis kecil" @click="arsip(u)">Arsipkan</button>
+              <button v-if="bisaAkses.admin" class="btn garis kecil" style="margin-left: 6px; color: var(--merah)" @click="hapus(u)">Hapus</button>
+            </td>
           </tr>
         </tbody>
       </table>

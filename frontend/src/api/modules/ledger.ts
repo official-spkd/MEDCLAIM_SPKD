@@ -1,5 +1,5 @@
 import { get, post, type Query } from "../client";
-import type { DaftarLedger, Ledger, TransisiBody } from "@/types";
+import type { DaftarLedger, Ledger, TransisiBody, HasilAjukanMassal } from "@/types";
 
 export const ledgerApi = {
   /** GET /api/ledger — params: status, q. Menyertakan kalibrasi. */
@@ -14,4 +14,8 @@ export const ledgerApi = {
   /** POST /api/ledger/:id/transisi — pindah status (mesin status di backend). */
   transisi: (id: string, body: TransisiBody) =>
     post<Ledger>(`/api/ledger/${encodeURIComponent(id)}/transisi`, body),
+
+  /** POST /api/ledger/ajukan-massal — semua entri Dikoreksi pada satu periode → Diajukan. */
+  ajukanMassal: (periode: string, rs?: string) =>
+    post<HasilAjukanMassal>("/api/ledger/ajukan-massal", { periode }, { query: { rs } }),
 };

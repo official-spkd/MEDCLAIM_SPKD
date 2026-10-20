@@ -64,3 +64,20 @@ func (h *Handler) Transisi(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, out)
 }
+
+// AjukanMassal: POST /api/ledger/ajukan-massal
+func (h *Handler) AjukanMassal(c *gin.Context) {
+	var body struct {
+		Periode string `json:"periode"`
+	}
+	if err := response.Bind(c, &body); err != nil {
+		response.Fail(c, err)
+		return
+	}
+	out, err := h.svc.AjukanMassal(c.Request.Context(), auth.Must(c), c.Query("rs"), body.Periode)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, out)
+}

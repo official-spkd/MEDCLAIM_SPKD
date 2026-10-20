@@ -250,3 +250,60 @@ func BuatKandidatTx(tx *gorm.DB, ks []Kandidat) (int, error) {
 	res := tx.Clauses(clause.OnConflict{DoNothing: true}).CreateInBatches(rows, 200)
 	return int(res.RowsAffected), res.Error
 }
+
+// HasilAjukanMassal = ringkasan pengajuan massal satu periode.
+type HasilAjukanMassal struct {
+	Periode string `json:"periode"`
+	Jumlah  int    `json:"jumlah"`
+}
+
+// AjukanMassal mengubah seluruh entri berstatus DIKOREKSI pada satu periode upload
+// menjadi DIAJUKAN (catatan bahwa periode tersebut sedang diajukan ke BPJS).
+// Hanya Casemix/Super Admin (dijaga di router, sama seperti transisi DIAJUKAN tunggal).
+func (s *Service) AjukanMassal(ctx context.Context, p *auth.Principal, rs, periode string) (*HasilAjukanMassal, error) {
+	periode = strings.TrimSpace(periode)
+	if len(periode) != 7 || periode[4] != '-' {
+		return nil, response.BadRequest("Periode tidak valid (format YYYY-MM).")
+	}
+	hid, err := p.ScopeHospital(rs)
+	if err != nil {
+		return nil, err
+	}
+	jumlah := 0
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		q := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Model(&Entry{}).
+			Where("status = 'DIKOREKSI'").
+			Where("episode_id IN (?)", tx.Table("episodes e").Select("e.id").
+				Joins("JOIN upload_batches b ON b.id = e.upload_batch_id").Where("b.periode = ?", periode))
+		if hid != "" {
+			q = q.Where("hospital_id = ?", hid)
+		}
+		var ids []string
+		if err := q.Pluck("id::text", &ids).Error; err != nil {
+			return err
+		}
+		if len(ids) == 0 {
+			return response.Unprocessable("Tidak ada entri berstatus Dikoreksi pada periode " + periode + ".")
+		}
+		if err := tx.Model(&Entry{}).Where("id IN ?", ids).
+			Updates(map[string]any{"status": "DIAJUKAN", "updated_at": gorm.Expr("now()")}).Error; err != nil {
+			return err
+		}
+		dari, ke := "DIKOREKSI", "DIAJUKAN"
+		catatan := "Pengajuan massal periode " + periode
+		evs := make([]Event, len(ids))
+		for i, id := range ids {
+			evs[i] = Event{LedgerID: id, DariStatus: &dari, KeStatus: &ke, AktorNama: p.Nama, Catatan: &catatan}
+		}
+		if err := tx.CreateInBatches(&evs, 200).Error; err != nil {
+			return err
+		}
+		jumlah = len(ids)
+		s.audit.Catat(tx, p.Email, "LEDGER_AJUKAN_MASSAL", "LEDGER", nil, audit.Str(periode+" · "+dari+" → "+ke))
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &HasilAjukanMassal{Periode: periode, Jumlah: jumlah}, nil
+}

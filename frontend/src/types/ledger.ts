@@ -55,3 +55,9 @@ export interface TransisiBody {
   referensiRm?: string;
   realisasi?: number;
 }
+
+// Respons POST /api/ledger/ajukan-massal
+export interface HasilAjukanMassal {
+  periode: string;
+  jumlah: number;
+}

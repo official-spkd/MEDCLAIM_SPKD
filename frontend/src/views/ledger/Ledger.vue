@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { ledgerApi, episodesApi, queriesApi, ApiError, modeDemo } from "@/api";
 import { store, bisaAkses } from "@/stores/session";
 import { rupiah, rupiahSingkat, tanggalWaktu, angka, persen } from "@/utils/format";
@@ -91,6 +91,34 @@ async function transisi() {
     await muat();
   } catch (e: any) {
     galatTransisi.value = e?.message ?? "Transisi ditolak.";
+  }
+}
+
+// ---------- Ajukan massal satu periode (Dikoreksi → Diajukan) ----------
+const bukaMassal = ref(false);
+const periodeMassal = ref("");
+const memprosesMassal = ref(false);
+const galatMassal = ref("");
+const daftarPeriode = computed(() =>
+  [...new Set(store.uploads.filter((u) => u.status !== "DIHAPUS").map((u) => u.periode))].sort().reverse(),
+);
+function mulaiMassal() {
+  periodeMassal.value = daftarPeriode.value[0] ?? "";
+  galatMassal.value = "";
+  bukaMassal.value = true;
+}
+async function ajukanMassal() {
+  galatMassal.value = "";
+  memprosesMassal.value = true;
+  try {
+    const h = await ledgerApi.ajukanMassal(periodeMassal.value, store.filter.rs || undefined);
+    bukaMassal.value = false;
+    okPesan(`${h.jumlah} entri periode ${h.periode} diubah menjadi Diajukan.`);
+    await muat();
+  } catch (e: any) {
+    galatMassal.value = e?.message ?? "Gagal mengajukan secara massal.";
+  } finally {
+    memprosesMassal.value = false;
   }
 }
 
@@ -213,6 +241,7 @@ const pesanOk = ref("");
     <span style="font-size: 12.5px; color: var(--text-2); align-self: center">
       Menampilkan <b>{{ angka(items.length) }}</b> dari <b>{{ angka(jumlahStatus.SEMUA ?? 0) }}</b> entri
     </span>
+    <button v-if="bisaAkses.ledgerTulis" class="btn garis" @click="mulaiMassal">Ajukan Massal</button>
     <button v-if="bisaAkses.ledgerTulis" class="btn navy" @click="bukaBuat = true">+ Kandidat Manual</button>
   </div>
 
@@ -350,6 +379,33 @@ const pesanOk = ref("");
         </div>
       </div>
       <div class="kaki"><button class="btn garis" @click="terpilih = null; memuatDetail = false">Tutup</button></div>
+    </div>
+  </div>
+
+  <!-- Modal ajukan massal -->
+  <div v-if="bukaMassal" class="modal-topeng" @click.self="bukaMassal = false">
+    <div class="modal" style="max-width: 520px">
+      <div class="kepala"><h3>Ajukan Massal per Periode</h3><button class="btn garis kecil" @click="bukaMassal = false">✕</button></div>
+      <div class="badan">
+        <p style="font-size: 13px; color: var(--text-2); margin-top: 0">
+          Semua entri berstatus <b>Dikoreksi</b> pada periode terpilih diubah menjadi <b>Diajukan</b> sekaligus,
+          sebagai catatan bahwa periode ini sedang diproses pengajuannya ke BPJS. Setiap entri tetap tercatat di timeline.
+        </p>
+        <div class="kolom-form">
+          <label>Periode</label>
+          <select v-model="periodeMassal">
+            <option v-for="p in daftarPeriode" :key="p" :value="p">{{ p }}</option>
+          </select>
+        </div>
+        <div class="info-kecil" style="margin-top: 12px">Entri Dikoreksi saat ini: <b>{{ angka(jumlahStatus.DIKOREKSI ?? 0) }}</b> (semua periode)</div>
+        <div v-if="galatMassal" class="bahaya-kecil" style="margin-top: 12px">{{ galatMassal }}</div>
+      </div>
+      <div class="kaki">
+        <button class="btn garis" @click="bukaMassal = false">Batal</button>
+        <button class="btn utama" :disabled="memprosesMassal || !periodeMassal" @click="ajukanMassal">
+          {{ memprosesMassal ? "Memproses…" : "Ajukan Semua" }}
+        </button>
+      </div>
     </div>
   </div>
 

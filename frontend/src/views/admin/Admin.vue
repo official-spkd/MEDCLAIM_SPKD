@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { adminApi, modeDemo } from "@/api";
 import { store } from "@/stores/session";
 import { tanggalWaktu, tanggal } from "@/utils/format";
@@ -32,6 +32,19 @@ function watchTab() {
   // Vue ref tidak punya watch inline di sini — pakai onMounted + handler tombol
   return asli;
 }
+
+// Pencarian + filter daftar pengguna (nama/email, peran, status).
+const cariUser = ref("");
+const filterPeran = ref("");
+const filterStatus = ref("");
+const usersTampil = computed(() => {
+  const k = cariUser.value.trim().toLowerCase();
+  return users.value.filter((u) =>
+    (!k || u.nama.toLowerCase().includes(k) || u.email.toLowerCase().includes(k)) &&
+    (!filterPeran.value || u.role === filterPeran.value) &&
+    (!filterStatus.value || (filterStatus.value === "AKTIF" ? u.aktif : !u.aktif)),
+  );
+});
 
 async function toggle(u: UserPub) {
   galat.value = "";
@@ -78,7 +91,27 @@ async function buat() {
   <div v-if="galat" class="bahaya-kecil" style="margin-bottom: 12px">{{ galat }}</div>
 
   <template v-if="tab === 'pengguna'">
-    <div style="display: flex; justify-content: flex-end; margin-bottom: 12px">
+    <div class="filter-bar">
+      <div class="kolom-form cari">
+        <label>Cari nama / email</label>
+        <input v-model="cariUser" placeholder="mis. casemix" />
+      </div>
+      <div class="kolom-form" style="max-width: 190px">
+        <label>Peran</label>
+        <select v-model="filterPeran">
+          <option value="">Semua peran</option>
+          <option v-for="(l, k) in LABEL_PERAN" :key="k" :value="k">{{ l }}</option>
+        </select>
+      </div>
+      <div class="kolom-form" style="max-width: 160px">
+        <label>Status</label>
+        <select v-model="filterStatus">
+          <option value="">Semua status</option>
+          <option value="AKTIF">Aktif</option>
+          <option value="NONAKTIF">Nonaktif</option>
+        </select>
+      </div>
+      <div style="flex: 1" />
       <button class="btn navy" @click="bukaBuat = true">+ Pengguna Baru</button>
     </div>
     <div class="tabel-wadah">
@@ -87,7 +120,7 @@ async function buat() {
           <tr><th>Nama</th><th>Email</th><th>Peran</th><th>RS</th><th>DPJP</th><th>Status</th><th>Login Terakhir</th><th></th></tr>
         </thead>
         <tbody>
-          <tr v-for="u in users" :key="u.id">
+          <tr v-for="u in usersTampil" :key="u.id">
             <td><b>{{ u.nama }}</b></td>
             <td class="tunggal">{{ u.email }}</td>
             <td><span class="badge navy">{{ LABEL_PERAN[u.role] ?? u.role }}</span></td>
@@ -106,6 +139,7 @@ async function buat() {
               </button>
             </td>
           </tr>
+          <tr v-if="usersTampil.length === 0"><td colspan="8" class="kosong">Tidak ada pengguna yang cocok.</td></tr>
         </tbody>
       </table>
     </div>

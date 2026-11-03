@@ -56,16 +56,15 @@ watch(jenis, muat);
   <div v-if="memuat" class="pemuat"><div class="spinner" /><span>Menjalankan deteksi anomali…</span></div>
   <div v-else-if="galat" class="bahaya-kecil">{{ galat }}</div>
   <div v-else style="display: flex; flex-direction: column; gap: 8px">
-    <div v-for="(a, i) in items" :key="i" class="kartu" style="display: flex; gap: 14px; align-items: center; flex-wrap: wrap; padding: 13px 16px">
-      <span class="badge" :class="badgeJenis[a.jenis]" style="min-width: 150px; justify-content: center">{{ labelJenis[a.jenis] ?? a.jenis }}</span>
-      <div style="min-width: 190px">
+    <div v-for="(a, i) in items" :key="i" class="kartu" style="display: grid; grid-template-columns: 150px 270px 90px 160px minmax(0, 1fr); gap: 14px; align-items: center; padding: 13px 16px">
+      <span class="badge" :class="badgeJenis[a.jenis]" style="justify-content: center">{{ labelJenis[a.jenis] ?? a.jenis }}</span>
+      <div>
         <b>{{ a.nama }}</b>
         <div style="font-size: 11.5px; color: var(--text-3)">{{ a.mr }} · {{ tanggal(a.tglMasuk) }} · LOS {{ a.los }} hari</div>
       </div>
-      <span class="badge navy">{{ a.icbg }}</span>
+      <span class="badge navy" style="justify-self: start">{{ a.icbg }}</span>
       <span class="tunggal">{{ a.sep }}</span>
-      <div style="flex: 1" />
-      <span style="font-size: 12.5px; color: var(--text-2); max-width: 420px">{{ a.detail }}</span>
+      <span style="font-size: 12.5px; color: var(--text-2); text-align: right">{{ a.detail }}</span>
     </div>
     <div v-if="items.length === 0" class="kartu"><div class="kosong">Tidak ada anomali yang cocok — data dalam kondisi sehat. ✨</div></div>
   </div>

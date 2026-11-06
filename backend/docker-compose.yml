@@ -1,0 +1,54 @@
+# MedClaim full stack lokal: db + backend + frontend.
+#   docker compose up -d --build   -> semuanya jalan (frontend http://localhost:7041/app/)
+#   docker compose up -d db        -> hanya database (dipakai run.ps1/run.sh mode dev hot-reload)
+#
+# Nama project default = instance 1, supaya `docker compose up` polos tidak
+# membuat project "backend" baru yang bentrok port dengan instance yang sudah jalan.
+# run.ps1 / run.sh menimpa ini lewat `docker compose -p medclaim-iN`.
+name: medclaim-i1
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: medclaim
+      POSTGRES_PASSWORD: medclaim
+      POSTGRES_DB: medclaim
+    ports:
+      # Host port diatur lewat env MEDCLAIM_DB_PORT. MedClaim memakai blok 7xxx
+      # (7433 = instance 1) karena 5432/5433/5434 dipakai simrs & medpath.
+      - "${MEDCLAIM_DB_PORT:-7433}:5432"
+    volumes:
+      - medclaim_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medclaim -d medclaim"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build: .
+    ports:
+      - "${MEDCLAIM_API_PORT:-7081}:8081"
+    environment:
+      APP_ENV: development
+      PORT: "8081"
+      DATABASE_URL: postgres://medclaim:medclaim@db:5432/medclaim?sslmode=disable
+      CORS_ORIGINS: "http://localhost:${MEDCLAIM_FE_PORT:-7041},http://localhost:5173"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ../frontend
+      args:
+        # Browser di host mengakses API lewat port host.
+        VITE_API_BASE: "http://localhost:${MEDCLAIM_API_PORT:-7081}"
+    ports:
+      - "${MEDCLAIM_FE_PORT:-7041}:80"
+    depends_on:
+      - backend
+
+volumes:
+  medclaim_pgdata:

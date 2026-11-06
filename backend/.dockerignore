@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+*.exe
+docs/
+.qodo/
+docker-compose.yml
+Dockerfile
+run.ps1
+run.sh
+README.md

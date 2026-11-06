@@ -42,10 +42,10 @@ func Load() (*Config, error) {
 
 	return &Config{
 		Env:         getenv("APP_ENV", "development"),
-		Port:        getenv("PORT", "8081"),
+		Port:        getenv("PORT", "7081"),
 		DatabaseURL: dsn,
 
-		CORSOrigins:    splitList(getenv("CORS_ORIGINS", "http://localhost:3031,http://localhost:5173,https://1lw5n254-3031.asse.devtunnels.ms")),
+		CORSOrigins:    splitList(getenv("CORS_ORIGINS", "http://localhost:7041,http://localhost:5173,https://1lw5n254-3031.asse.devtunnels.ms")),
 		SessionTTL:     time.Duration(ttlJam) * time.Hour,
 		CookieSecure:   getenv("COOKIE_SECURE", "false") == "true",
 		CookieSameSite: parseSameSite(getenv("COOKIE_SAMESITE", "lax")),
